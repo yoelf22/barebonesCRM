@@ -148,6 +148,10 @@ Setup order:
 2. In claude.ai, connect Gmail.
 3. Create a routine on a daily cron. Give it the repo and the prompt below.
 4. Wait for one run. `git pull`. Reload the board.
+5. Open the **Unmatched** tab. Promote the senders who belong in a campaign, dismiss the
+   rest. Each promotion stores the address or profile URL, so the next run matches that
+   person on its own. Expect this list to be long after the first run and short after a
+   week.
 
 The prompt, with the author's specifics removed. Replace the bracketed parts.
 
