@@ -88,17 +88,50 @@ Know these before you adopt it.
 
 If those constraints fit, the rest of this file is everything you need.
 
-## Run it
+## Set it up
+
+Steps 1 to 3 need nothing but Python 3 and git. Steps 4 and 5 are optional and each touch one
+external service.
+
+**1. Fork, make it private, clone.** Fork this repo on GitHub, switch the fork to **private**
+before you put a real name in it, then clone your fork. Your fork is where every save gets
+pushed. If you clone this repo directly, saves still land on disk but every push fails
+silently, because you cannot push here.
+
+**2. Run it.**
 
 ```
 python3 crm.py
 ```
 
-Then open **http://localhost:8787/app.html**.
+Open **http://localhost:8787/app.html**. Running via `crm.py` rather than opening the file
+directly is what makes writes work: edits POST to the server, which applies the change and
+commits it. Opened as a bare `file://`, the page is read-only.
 
-Running via `crm.py` (rather than opening the file directly) is what makes **writes** work:
-edits POST to the server, which applies the change and `git commit`s it. Opened as a bare
-`file://`, the page is read-only.
+**3. Replace the sample.** The repo ships one placeholder campaign, organization and lead.
+Empty them before importing, since the importer adds and never replaces:
+
+```
+printf '[]' > leads.json; printf '[]' > organizations.json; printf '[]' > campaigns.json
+```
+
+Then use the **Import CSV** tab. It creates the campaign, maps your columns and de-duplicates
+organizations by name. One CSV per campaign. Details under Onboarding below.
+
+**4. Optional: the Ask tab.** Export one API key before starting the server and the Ask tab
+answers questions about your CRM in plain English. Skip it and everything else works.
+
+```
+export ANTHROPIC_API_KEY=sk-ant-...      # Claude, or
+export OPENAI_API_KEY=sk-...             # ChatGPT
+python3 crm.py
+```
+
+**5. Optional: the bot.** A daily process that reads your mail, matches replies to leads,
+and marks them on the Today view. Not shipped here. What is shipped is the file contract it
+writes to and the UI that renders it. You need leads in the CRM first, a git remote the bot
+can push to, a mail source it can read, and a schedule. **[BOT.md](BOT.md)** has the contract,
+the full prerequisites, and a ready-to-paste prompt for a hosted agent with a Gmail connector.
 
 ## The model
 
@@ -124,8 +157,8 @@ Two writers can share the data without clobbering each other because they own di
   `comments.json`, `inbox/unmatched.json`.
 
 The UI merges them **human-over-bot**: an automated suggestion shows only where you haven't
-decided the field yourself. (This repo ships without a bot; the endpoints and file split are
-here so you can add one.)
+decided the field yourself. This repo ships without a bot. The endpoints and file split are
+here so you can add one; [BOT.md](BOT.md) is the contract.
 
 ## Endpoints (`crm.py`)
 
@@ -151,6 +184,7 @@ Writes are **deltas**, never the whole store, so concurrent edits don't overwrit
 | `app.html` | the board: Today, Campaigns, People views + write-back controls |
 | `campaigns/organizations/leads.json` | the data (ships with one sample of each) |
 | `test_*.py`, `test_app_logic.js` | plain-assert tests (`python3 test_x.py`, `node test_app_logic.js`) |
+| `BOT.md` | the contract for an optional mail-reading bot, plus a paste-ready example |
 
 ## Tests
 
@@ -163,8 +197,6 @@ node test_app_logic.js
 
 ## Notes
 
-- The sample `campaigns/organizations/leads.json` contain one placeholder each — replace them
-  with your own.
 - If you want git-backed persistence, run `crm.py` inside a git repo with a remote; each write
   commits (and can push). Without a remote it still commits locally.
 
