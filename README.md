@@ -104,7 +104,7 @@ silently, because you cannot push here.
 python3 crm.py
 ```
 
-Open **http://localhost:8787/app.html**. Running via `crm.py` rather than opening the file
+Open **http://localhost:8787/app.html**. Set `CRM_PORT` to run a second copy on another port. Running via `crm.py` rather than opening the file
 directly is what makes writes work: edits POST to the server, which applies the change and
 commits it. Opened as a bare `file://`, the page is read-only.
 
@@ -169,7 +169,9 @@ here so you can add one; [BOT.md](BOT.md) is the contract.
 - `POST /comment` — append a dated log entry `{key, text}`.
 - `POST /followup` — set/clear a follow-up date, or close/reopen an item.
 - `POST /import` — create leads (and their orgs) from mapped CSV rows into a campaign,
-  creating the campaign if it doesn't exist yet.
+  creating the campaign if it doesn't exist yet. Optional `dismissLinks` drops the matching
+  `inbox/unmatched.json` entries in the same commit (this is how Promote works).
+- `POST /dismiss` — drop `inbox/unmatched.json` entries by link without promoting.
 - `POST /ask` — plain-English Q&A about your CRM via an LLM (see below).
 
 Writes are **deltas**, never the whole store, so concurrent edits don't overwrite each other.
@@ -181,7 +183,7 @@ Writes are **deltas**, never the whole store, so concurrent edits don't overwrit
 | `crm.py` | stdlib HTTP server + delta-write endpoints (git commit on write) |
 | `model.py` | entity schema, validators, `apply_delta` |
 | `app-logic.js` | pure join / roll-up / funnel / due helpers (browser + Node) |
-| `app.html` | the board: Today, Campaigns, People views + write-back controls |
+| `app.html` | the board: Today, Campaigns, People, Import CSV, Unmatched, Ask + write-back controls |
 | `campaigns/organizations/leads.json` | the data (ships with one sample of each) |
 | `test_*.py`, `test_app_logic.js` | plain-assert tests (`python3 test_x.py`, `node test_app_logic.js`) |
 | `BOT.md` | the contract for an optional mail-reading bot, plus a paste-ready example |

@@ -82,6 +82,7 @@ a.link:hover { text-decoration:underline; }
     <button class="tab" data-tab="campaigns">Campaigns</button>
     <button class="tab" data-tab="people">People</button>
     <button class="tab" data-tab="import">Import CSV</button>
+    <button class="tab" data-tab="unmatched">Unmatched</button>
     <button class="tab" data-tab="ask">Ask</button>
   </div>
   <div id="view"></div>
@@ -157,9 +158,10 @@ function kindBadge(kind){ const cls={active:"b-active",won:"b-won",lost:"b-lost"
 
 async function load() {
   try {
-    const [campaigns, orgs, leads, trail, comments, observations] = await Promise.all(
-      ["/campaigns","/organizations","/leads","/trail","/comments","/observations"].map(u => fetch(u).then(r => r.json())));
-    RAW = { campaigns, orgs, leads, trail, comments, observations };
+    const [campaigns, orgs, leads, trail, comments, observations, unmatched] = await Promise.all(
+      ["/campaigns","/organizations","/leads","/trail","/comments","/observations","/unmatched"].map(u => fetch(u).then(r => r.json())));
+    RAW = { campaigns, orgs, leads, trail, comments, observations, unmatched };
+    document.querySelector('[data-tab="unmatched"]').textContent = "Unmatched" + (unmatched.length ? " (" + unmatched.length + ")" : "");
     MODEL = AppLogic.buildModel(campaigns, orgs, leads, trail);
     document.getElementById("counts").textContent =
       leads.length + " leads · " + orgs.length + " orgs · " + campaigns.length + " campaigns";
@@ -181,6 +183,7 @@ function render() {
   if (window.__tab === "today") renderToday();
   else if (window.__tab === "campaigns") renderCampaigns();
   else if (window.__tab === "import") renderImport();
+  else if (window.__tab === "unmatched") renderUnmatched();
   else if (window.__tab === "ask") renderAsk();
   else renderPerson();
 }
@@ -456,6 +459,48 @@ async function doImport(){
     await load();
     setTab("people");
   } catch(e){ res.innerHTML = '<span class="err">Server error — is crm.py running?</span>'; }
+}
+// ---- Unmatched: inbound the bot could not match to a lead. Promote = one-row /import + drop the entry. ----
+function renderUnmatched() {
+  const items = RAW.unmatched || [], camps = RAW.campaigns || [];
+  let h = '<div class="card"><h3>Unmatched inbound</h3>'
+    + '<p class="muted">Messages the bot could not attach to a lead. Promote one to create the person (and their organization) in a campaign; the bot will match them from now on. Dismiss drops it. See BOT.md.</p>';
+  if (!items.length) h += '<p class="muted">Nothing waiting.</p>';
+  if (!camps.length && items.length) h += '<p class="err">Create a campaign first (Import CSV tab).</p>';
+  h += '</div>';
+  const copts = camps.map(c => '<option value="'+esc(c.id)+'">'+esc(CAMPLABEL[c.id]||c.name)+'</option>').join('');
+  items.forEach((u, i) => {
+    h += '<div class="card" id="um'+i+'"><div class="kv"><b>'+esc(u.name || u.from || "(unknown)")+'</b>'
+      + '<span class="badge b-active">'+esc(u.channel||"")+'</span>'
+      + (u.link ? ' <a class="link" href="'+esc(u.link)+'" target="_blank">open ↗</a>' : '') + '</div>'
+      + '<div class="kv muted">'+esc(u.from||"")+(u.subject?' · '+esc(u.subject):'')+(u.date?' · '+ilTime(u.date,true):'')+'</div>'
+      + '<div class="controls"><label>Campaign <select id="umc'+i+'">'+copts+'</select></label>'
+      + '<label>Organization <input id="umo'+i+'" value="'+esc(u.guessOrg && u.guessOrg !== "-" ? u.guessOrg : "")+'" placeholder="optional"></label>'
+      + '<button class="btn win" onclick="promoteUnmatched('+i+')"'+(camps.length?'':' disabled')+'>Promote</button>'
+      + '<button class="btn" onclick="dismissUnmatched('+i+')">Dismiss</button>'
+      + '<span id="umr'+i+'" class="muted"></span></div></div>';
+  });
+  view.innerHTML = h;
+}
+async function promoteUnmatched(i){
+  const u = (RAW.unmatched||[])[i], res = document.getElementById("umr"+i); if (!u) return;
+  const row = { name: u.name || u.from || "", org: document.getElementById("umo"+i).value, notes: u.subject || "",
+                email: u.channel === "email" ? (u.from||"") : "", linkedin: u.channel === "linkedin" ? (u.from||"") : "" };
+  res.textContent = "Promoting…";
+  try {
+    const r = await fetch("/import", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ campaignId: document.getElementById("umc"+i).value, rows:[row], dismissLinks:[u.link] }) });
+    const d = await r.json();
+    if (!r.ok){ res.innerHTML = '<span class="err">'+esc(d.error||r.status)+'</span>'; return; }
+    await load();
+  } catch(e){ res.innerHTML = '<span class="err">Server error — is crm.py running?</span>'; }
+}
+async function dismissUnmatched(i){
+  const u = (RAW.unmatched||[])[i]; if (!u) return;
+  try {
+    const r = await fetch("/dismiss", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ links:[u.link] }) });
+    if (r.ok) await load();
+  } catch(e){}
 }
 // Minimal RFC-4180-ish CSV parser: handles quoted fields, escaped quotes, newlines in quotes.
 function parseCSV(text){

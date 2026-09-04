@@ -18,5 +18,33 @@ def test_get_leads_ok():
     finally:
         srv.shutdown()
 
+
+def test_promote_and_dismiss(tmp=None):
+    # runs against a scratch copy of the repo so no real file or git remote is touched
+    import os, shutil, tempfile, subprocess
+    d = tempfile.mkdtemp(); root = crm.ROOT
+    for f in ("crm.py","model.py","campaigns.json","organizations.json","leads.json","comments.json","followups.json","observations.json","trail.json"):
+        shutil.copy(os.path.join(root, f), d)
+    os.makedirs(os.path.join(d, "inbox")); subprocess.run(["git","-C",d,"init","-q"])
+    unm = [{"from":"sam@example.com","name":"Sam Example","subject":"Re: talk","date":"2026-09-04T05:40:56Z",
+            "link":"https://mail.example/1","channel":"email","guessOrg":"Somewhere"},
+           {"from":"https://linkedin.com/in/pat","name":"Pat Example","subject":"","date":"2026-09-04T05:41:00Z",
+            "link":"https://linkedin.example/2","channel":"linkedin","guessOrg":"-"}]
+    json.dump(unm, open(os.path.join(d, "inbox", "unmatched.json"), "w"))
+    crm.ROOT = d; crm.UNMATCHED = os.path.join(d, "inbox", "unmatched.json")
+    try:
+        r = crm.persist_import("outreach", "", [{"name":"Sam Example","email":"sam@example.com","org":"Somewhere"}],
+                               "prospect", ["https://mail.example/1"])
+        assert r["addedLeads"] == 1 and r["addedOrgs"] == 1
+        left = json.load(open(crm.UNMATCHED)); assert [u["name"] for u in left] == ["Pat Example"]
+        r = crm.persist_import("outreach", "", [{"name":"Pat Example","linkedin":"https://linkedin.com/in/pat"}], "prospect", ["https://linkedin.example/2"])
+        lead = [l for l in json.load(open(os.path.join(d, "leads.json"))) if l["name"] == "Pat Example"][0]
+        assert lead["handles"] == {"linkedin": "https://linkedin.com/in/pat"}
+        assert json.load(open(crm.UNMATCHED)) == []
+        json.dump(unm[:1], open(crm.UNMATCHED, "w"))
+        assert crm.persist_dismiss(["https://mail.example/1"]) == []
+    finally:
+        crm.ROOT = root; crm.UNMATCHED = os.path.join(root, "inbox", "unmatched.json"); shutil.rmtree(d)
+
 if __name__ == "__main__":
-    test_get_leads_ok(); print("ok")
+    test_get_leads_ok(); test_promote_and_dismiss(); print("ok")

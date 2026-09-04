@@ -90,9 +90,12 @@ An array of inbound messages the bot could not match to any lead.
 }]
 ```
 
-The bot never creates a lead. You decide whether an unmatched sender becomes one. The server
-exposes this file at `GET /unmatched`. The page does not render it yet, so read the file or
-curl the endpoint.
+The bot never creates a lead. You decide whether an unmatched sender becomes one. The
+**Unmatched** tab lists these entries. **Promote** creates the lead and its organization in
+the campaign you pick, stores the email or LinkedIn profile URL on the lead so the bot matches
+that person from then on, and drops the entry. **Dismiss** drops it without creating anything.
+Both are single commits. For LinkedIn entries, `from` must be the profile URL, since that is
+what gets stored as `handles.linkedin`.
 
 ## Matching
 

@@ -15,14 +15,16 @@ Writes (each one: pull -> apply -> commit -> push, serialized by a global lock):
   POST /followup {key, followUpDate}           -> set/clear a follow-up date
                  {key, closed: true}           -> close the item (off the board)
                  {key, reopen: true}           -> undo a close
-  POST /import   {campaignId, rows[, campaignName, defaultState]}
-                                               -> create leads (+ orgs, + campaign if new) from CSV rows
+  POST /import   {campaignId, rows[, campaignName, defaultState, dismissLinks]}
+                                               -> create leads (+ orgs, + campaign if new) from CSV rows;
+                                                  dismissLinks drops promoted inbox/unmatched entries
+  POST /dismiss  {links}                       -> drop inbox/unmatched entries without promoting
   POST /ask      {question, history, leadId}   -> read-only LLM answer; needs ANTHROPIC_API_KEY
                                                   or OPENAI_API_KEY in the env
 
 Single user, localhost only, no auth. Without a git remote, writes still commit locally.
 
-Run:  python3 crm.py     (Ctrl-C to stop)
+Run:  python3 crm.py     (Ctrl-C to stop; CRM_PORT=8791 to use another port)
 """
 import http.server, json, os, subprocess, threading, time
 from urllib.parse import urlparse
@@ -31,7 +33,7 @@ import model
 ROOT = os.path.dirname(os.path.abspath(__file__))
 COMMENTS = os.path.join(ROOT, "comments.json")
 FOLLOWUPS = os.path.join(ROOT, "followups.json")
-PORT = 8787
+PORT = int(os.environ.get("CRM_PORT", 8787))   # override to run a second copy side by side
 LOCK = threading.Lock()
 
 
@@ -180,14 +182,44 @@ DEFAULT_STATES = [{"key": "prospect", "label": "Prospect", "kind": "active"},
                   {"key": "lost", "label": "Lost", "kind": "lost"}]
 
 
-def persist_import(campaign_id, campaign_name, rows, default_state):
+UNMATCHED = os.path.join(ROOT, "inbox", "unmatched.json")
+
+
+def _drop_unmatched(links):
+    """Remove inbox/unmatched.json entries whose link is in `links`. Returns True if
+    the file changed. Caller holds LOCK and does the git add/commit."""
+    if not links:
+        return False
+    items = load_json_file("inbox/unmatched.json", [])
+    kept = [u for u in items if u.get("link") not in links]
+    if len(kept) == len(items):
+        return False
+    model.save(UNMATCHED, kept)
+    return True
+
+
+def persist_dismiss(links):
+    """Drop unmatched entries the human chose not to promote."""
+    with LOCK:
+        git("pull", "--no-edit", "--no-rebase", "-q")
+        if _drop_unmatched(set(links)):
+            git("add", "inbox/unmatched.json")
+            git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
+                "commit", "-q", "-m", "dismiss: %d unmatched" % len(links))
+            if git("push", "-q", "origin", "main").returncode != 0:
+                git("pull", "--no-edit", "--no-rebase", "-q"); git("push", "-q", "origin", "main")
+        return load_json_file("inbox/unmatched.json", [])
+
+
+def persist_import(campaign_id, campaign_name, rows, default_state, dismiss_links=()):
     """Create leads (and their orgs) from imported CSV rows into a campaign, creating
     the campaign itself with default states if it doesn't exist yet (onboarding).
 
     Rows are dicts already mapped by the browser: {name, email, org, role, notes,
-    sector, region, strength}. Appends to organizations.json + leads.json (and
+    sector, region, strength, linkedin}. Appends to organizations.json + leads.json (and
     campaigns.json if a campaign was created), dedups ids, validates the whole
-    model, then commits + pushes.
+    model, then commits + pushes. `dismiss_links`: unmatched entries to drop in the
+    same commit (promote-from-unmatched).
     """
     with LOCK:
         git("pull", "--no-edit", "--no-rebase", "-q")
@@ -225,7 +257,8 @@ def persist_import(campaign_id, campaign_name, rows, default_state):
                 lid = base + "-" + str(i); i += 1
             emails = [e.strip() for e in str(r.get("email", "")).replace(";", ",").split(",") if e.strip()]
             leads.append({"id": lid, "orgId": oid, "campaignId": campaign_id, "name": name,
-                          "emails": emails, "handles": {},
+                          "emails": emails,
+                          "handles": ({"linkedin": str(r["linkedin"]).strip()} if r.get("linkedin") else {}),
                           "role": (str(r.get("role", "")).strip() or None), "state": state,
                           "strength": r.get("strength") if r.get("strength") in ("strong", "medium", "stretch") else "medium",
                           "followUpDate": None, "waiting": "them",
@@ -247,6 +280,8 @@ def persist_import(campaign_id, campaign_name, rows, default_state):
         if created_campaign:
             model.save(os.path.join(ROOT, "campaigns.json"), campaigns)
             files.append("campaigns.json")
+        if _drop_unmatched(set(dismiss_links)):
+            files.append("inbox/unmatched.json")
         git("add", *files)
         git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
             "commit", "-q", "-m", "import: %d leads into %s" % (added_leads, campaign_id))
@@ -405,11 +440,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": "bad request"}, 400)
             try:
                 return self._json(persist_import(cid, str(c.get("campaignName", "")).strip(),
-                                                 rows, str(c.get("defaultState", "")).strip()))
+                                                 rows, str(c.get("defaultState", "")).strip(),
+                                                 [str(x) for x in (c.get("dismissLinks") or [])]))
             except ValueError as e:
                 return self._json({"error": str(e)}, 400)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
+        if p == "/dismiss":
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                links = json.loads(self.rfile.read(n)).get("links") or []
+                assert isinstance(links, list) and links
+            except Exception:
+                return self._json({"error": "bad request"}, 400)
+            return self._json(persist_dismiss([str(x) for x in links]))
         if p == "/ask":
             try:
                 n = int(self.headers.get("Content-Length", 0))
