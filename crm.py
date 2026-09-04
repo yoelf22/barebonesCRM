@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """
-Barebones CRM launcher.
+Barebones CRM server.
 
-Serves the CRM at http://localhost:8787/index.html AND persists per-contact
-comments back to the repo:
-  - GET  /comments        -> comments.json contents
-  - POST /comment {key,text[,author]} -> append + git commit + push
-  - GET  /followups       -> followups.json contents (human-chosen follow-up dates)
-  - POST /followup {key,followUpDate} -> set/clear + git commit + push
-                   {key,closed:true}   -> close the item (off the board) + same
-                   {key,reopen:true}   -> undo a close, restoring any date it carried
-                          (also accepts the old short name `fu`)
+Serves the board at http://localhost:8787/app.html and persists every edit to the
+JSON files in this folder, committing each write to git.
 
-Comments live in comments.json (kept out of index.html so they can never break
-the page). Each save pulls the bot's latest, commits comments.json only, and
-pushes, so the repo stays the single source of truth.
+Reads:
+  GET /campaigns /organizations /leads /followups /comments
+      /trail /observations /unmatched          -> the matching JSON file
+
+Writes (each one: pull -> apply -> commit -> push, serialized by a global lock):
+  POST /lead /org /campaign {id, <field>}      -> single-field delta, validated by model.py
+  POST /comment  {key, text[, author]}         -> append a dated log entry
+  POST /followup {key, followUpDate}           -> set/clear a follow-up date
+                 {key, closed: true}           -> close the item (off the board)
+                 {key, reopen: true}           -> undo a close
+  POST /import   {campaignId, rows[, campaignName, defaultState]}
+                                               -> create leads (+ orgs, + campaign if new) from CSV rows
+  POST /ask      {question, history, leadId}   -> read-only LLM answer; needs ANTHROPIC_API_KEY
+                                                  or OPENAI_API_KEY in the env
+
+Single user, localhost only, no auth. Without a git remote, writes still commit locally.
 
 Run:  python3 crm.py     (Ctrl-C to stop)
 """

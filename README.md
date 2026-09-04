@@ -1,10 +1,92 @@
 # barebonesCRM
 
-A tiny, file-based CRM you can run from one folder. No database, no build step, no
-framework — just Python's standard library, a static HTML page, and git as the datastore.
+A CRM for one person running a few outreach campaigns. It is a folder: three JSON files,
+a Python script from the standard library, one HTML page, and git as the database. Clone it,
+run it, replace the sample lead with your own, and you have a working board in under a minute.
 
-It models outreach as **Campaigns → Organizations → Leads**, with a lightweight per-lead
-**comms trail**, and serves three views (Today, Campaigns, People) from a thin-client page.
+## Why it exists
+
+Most CRMs are built for sales teams: seats, pipelines, integrations, a pricing page. If you
+are one person pitching a book, a talk, a product or yourself to a few hundred people across
+a handful of campaigns, that machinery costs more attention than it saves. The spreadsheet you
+fall back to has the opposite problem: it holds the names but not the state. Who did I write
+to, who owes me a reply, what is due today, which campaign is actually moving?
+
+barebonesCRM answers those four questions and stops there. Every lead belongs to one campaign
+and one organization, sits in one named state, and knows whose turn it is. The board shows
+what is due, how each campaign is converting, and the history of every conversation. That is
+the whole job.
+
+## Built for one person
+
+This is a single-user tool, and that is a design choice rather than a gap. Almost everything
+that makes a CRM heavy exists to serve more than one user: accounts and roles, permission
+checks, a hosted database, conflict handling, an admin panel, a billing model. Take the second
+user away and all of it can go.
+
+What is left is what a single operator actually gains:
+
+- **Your data is yours, on your disk.** Three readable JSON files in a git repo. No vendor,
+  no export button, no account to lose. `grep` works on it.
+- **No login, ever.** The board opens on localhost and is already you. There is nothing to
+  remember, expire or reset.
+- **Every change is a commit.** The history of your outreach is the git log. Undo is
+  `git revert`. Backup is `git push`.
+- **Small enough to change.** One server script, one page, one model file. When your process
+  changes, you edit the tool to match instead of working around it.
+- **Nothing to keep alive.** No service to renew, no database to migrate, no dependency to
+  update. If you stop using it for a year it still runs.
+
+The same choice sets a hard ceiling: it does not scale to a second person. That is covered
+under limitations below. If you work alone, that ceiling is above you.
+
+## The lean structure
+
+There is no database, no build step, no framework, and no dependency to install.
+
+- **Data is three JSON files** at the repo root: `campaigns.json`, `organizations.json`,
+  `leads.json`. Open them in any editor. Diff them in git. Back them up by pushing.
+- **The server is one script**, `crm.py`, using Python's standard library only. It serves
+  the page and accepts small delta writes. Each write is applied to fresh state and committed,
+  so git history is your audit trail and your undo.
+- **The page is one file**, `app.html`, in vanilla JavaScript. Three views (Today, Campaigns,
+  People) plus a CSV importer and a plain-English Ask tab. No bundler to keep alive.
+- **The rules live in one module**, `model.py`. Entity shapes, validation, and how a
+  delta is applied. If you want a new field or a new state, this is the only file
+  you have to understand first.
+- **Two writers can coexist** because they own different files. The UI owns the model.
+  An optional bot (not included) owns observations and an unmatched-inbox file. The view
+  merges them, and a human decision always wins.
+
+You can read all of it in an afternoon, which is the point: a tool you fully understand is one
+you will keep using and keep fixing.
+
+## Limitations, on purpose
+
+Know these before you adopt it.
+
+- **Single user.** This is the main one, and the flip side of the section above. There
+  are no accounts, no roles, no shared access, and a global lock that allows one write at a
+  time. A colleague cannot log in because there is no login. Two people editing the same
+  repo would fight over git. A team needs a different tool. Do not expose the port to a
+  network.
+- **Git is the persistence layer.** Every save runs a pull, a commit, and a push. Without a
+  remote it still commits locally, but a broken git state means broken saves. Keep the repo
+  clean.
+- **Hundreds of leads, not hundreds of thousands.** Every request reloads the JSON from disk
+  and the page holds everything in memory. It is fast at the scale it was built for and will
+  not stay fast far beyond it.
+- **No sync, no reminders.** Nothing reads your mail, nothing sends you a notification. The
+  Today view is the reminder. Email and calendar hooks are yours to add.
+- **No reporting beyond the funnel.** Per-campaign state counts and due items are what you
+  get. Charts, exports and dashboards are not here.
+- **The schema is opinionated.** The `facts` block on a lead reflects the outreach it was
+  extracted from (paid or free, format sent, physical copy offered). Edit `model.py` to make
+  it yours rather than working around it.
+- **The Ask tab needs an API key** and sends a compact summary of your data to Claude or
+  ChatGPT. Leave the key unset and it stays off.
+
+If those constraints fit, the rest of this file is everything you need.
 
 ## Run it
 
