@@ -162,6 +162,138 @@ def persist_entity(fname, delta, allowed, message):
         return items
 
 
+def _slug(s):
+    import re
+    return re.sub(r"[^a-z0-9]+", "-", str(s).lower()).strip("-")[:60] or "x"
+
+
+DEFAULT_STATES = [{"key": "prospect", "label": "Prospect", "kind": "active"},
+                  {"key": "contacted", "label": "Contacted", "kind": "active"},
+                  {"key": "replied", "label": "Replied", "kind": "active"},
+                  {"key": "won", "label": "Won", "kind": "won"},
+                  {"key": "lost", "label": "Lost", "kind": "lost"}]
+
+
+def persist_import(campaign_id, campaign_name, rows, default_state):
+    """Create leads (and their orgs) from imported CSV rows into a campaign, creating
+    the campaign itself with default states if it doesn't exist yet (onboarding).
+
+    Rows are dicts already mapped by the browser: {name, email, org, role, notes,
+    sector, region, strength}. Appends to organizations.json + leads.json (and
+    campaigns.json if a campaign was created), dedups ids, validates the whole
+    model, then commits + pushes.
+    """
+    with LOCK:
+        git("pull", "--no-edit", "--no-rebase", "-q")
+        campaigns = load_json_file("campaigns.json", [])
+        camp = next((c for c in campaigns if c.get("id") == campaign_id), None)
+        created_campaign = False
+        if not camp:
+            camp = {"id": campaign_id, "name": (campaign_name or campaign_id),
+                    "targetType": "individual", "icp": "", "goal": "Engagement",
+                    "states": [dict(s) for s in DEFAULT_STATES], "window": None, "notes": ""}
+            campaigns.append(camp); created_campaign = True
+        state_keys = {s["key"] for s in camp.get("states", [])}
+        state = default_state if default_state in state_keys else (
+            next(iter(state_keys)) if state_keys else "prospect")
+        orgs = load_json_file("organizations.json", [])
+        leads = load_json_file("leads.json", [])
+        org_ids = {o["id"] for o in orgs}
+        lead_ids = {l["id"] for l in leads}
+        pfx = campaign_id + ":"
+        added_leads = added_orgs = 0
+        for r in rows:
+            name = str(r.get("name", "")).strip()
+            if not name:
+                continue
+            org_name = str(r.get("org", "")).strip() or name
+            oid = pfx + _slug(org_name)
+            if oid not in org_ids:
+                orgs.append({"id": oid, "name": org_name,
+                             "sector": str(r.get("sector", "")).strip() or "—",
+                             "region": (str(r.get("region", "")).strip() or None),
+                             "url": (r.get("url") or None), "campaignId": campaign_id})
+                org_ids.add(oid); added_orgs += 1
+            lid = base = pfx + _slug(name); i = 2
+            while lid in lead_ids:
+                lid = base + "-" + str(i); i += 1
+            emails = [e.strip() for e in str(r.get("email", "")).replace(";", ",").split(",") if e.strip()]
+            leads.append({"id": lid, "orgId": oid, "campaignId": campaign_id, "name": name,
+                          "emails": emails, "handles": {},
+                          "role": (str(r.get("role", "")).strip() or None), "state": state,
+                          "strength": r.get("strength") if r.get("strength") in ("strong", "medium", "stretch") else "medium",
+                          "followUpDate": None, "waiting": "them",
+                          "facts": {"paidStatus": "free", "amount": None, "formatRequested": None,
+                                    "formatSent": None, "physicalCopyOffered": False},
+                          "gmailThreadId": None, "notes": str(r.get("notes", "")).strip()})
+            lead_ids.add(lid); added_leads += 1
+        # validate the whole model before writing anything
+        cids = {c["id"] for c in campaigns}; oids = {o["id"] for o in orgs}
+        cst = {c["id"]: {s["key"] for s in c["states"]} for c in campaigns}
+        errs = []
+        for o in orgs: errs += model.validate_org(o, cids)
+        for l in leads: errs += model.validate_lead(l, oids, cst)
+        if errs:
+            raise ValueError("validation failed: " + "; ".join(errs[:5]))
+        files = ["organizations.json", "leads.json"]
+        model.save(os.path.join(ROOT, "organizations.json"), orgs)
+        model.save(os.path.join(ROOT, "leads.json"), leads)
+        if created_campaign:
+            model.save(os.path.join(ROOT, "campaigns.json"), campaigns)
+            files.append("campaigns.json")
+        git("add", *files)
+        git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
+            "commit", "-q", "-m", "import: %d leads into %s" % (added_leads, campaign_id))
+        if git("push", "-q", "origin", "main").returncode != 0:
+            git("pull", "--no-edit", "--no-rebase", "-q"); git("push", "-q", "origin", "main")
+        return {"addedLeads": added_leads, "addedOrgs": added_orgs, "state": state,
+                "createdCampaign": created_campaign, "campaignId": campaign_id}
+
+
+def llm_answer(question, history, context):
+    """Plain-English Q&A about the CRM, via raw HTTP so barebonesCRM keeps zero
+    dependencies. Read-only/advisory. Provider picked by whichever key is set:
+    ANTHROPIC_API_KEY (Claude) or OPENAI_API_KEY (ChatGPT). Override the model with
+    CRM_LLM_MODEL.
+    """
+    import urllib.request
+    system = (
+        "You are a friendly assistant helping someone learn and operate 'barebonesCRM', a "
+        "small file-based CRM. Data model: Campaigns contain Organizations which contain Leads. "
+        "Each lead has a state (one of its campaign's states, each tagged active/won/lost), a "
+        "followUpDate, and a 'waiting' side (me/them). The user works through a web UI with these "
+        "views: Today (leads due or owed), Campaigns (funnels), People (a sortable table + a "
+        "per-person detail with controls). Controls: set state, schedule the next touch (+N days), "
+        "mark Won or Drop, and add dated Log notes. Explain the logic in plain English and tell the "
+        "user which control to click. You are ADVISORY and READ-ONLY: you cannot change data. "
+        "Here is a snapshot of their current data:\n" + context)
+    msgs = (history or [])[-8:] + [{"role": "user", "content": question}]
+    ank = os.environ.get("ANTHROPIC_API_KEY")
+    opk = os.environ.get("OPENAI_API_KEY")
+    if ank:
+        mid = os.environ.get("CRM_LLM_MODEL", "claude-opus-5")
+        body = json.dumps({"model": mid, "max_tokens": 1500, "system": system,
+                           "messages": msgs}).encode("utf-8")
+        req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body,
+              headers={"content-type": "application/json", "x-api-key": ank,
+                       "anthropic-version": "2023-06-01"})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            d = json.loads(r.read())
+        return ("".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text").strip()
+                or "(the model returned no text)")
+    if opk:
+        mid = os.environ.get("CRM_LLM_MODEL", "gpt-4o")
+        body = json.dumps({"model": mid, "max_tokens": 1500,
+                           "messages": [{"role": "system", "content": system}] + msgs}).encode("utf-8")
+        req = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=body,
+              headers={"content-type": "application/json", "authorization": "Bearer " + opk})
+        with urllib.request.urlopen(req, timeout=90) as r:
+            d = json.loads(r.read())
+        return d["choices"][0]["message"]["content"].strip()
+    return ("No LLM key set. Export ANTHROPIC_API_KEY (for Claude) or OPENAI_API_KEY (for ChatGPT) "
+            "before starting crm.py, then reload — and you can chat with it in plain English.")
+
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k):
         super().__init__(*a, directory=ROOT, **k)
@@ -192,6 +324,30 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         ref = self.headers.get("Referer", "")
         origins = ("http://localhost:%d" % PORT, "http://127.0.0.1:%d" % PORT)
         return "ui" if ref.startswith(origins) and "Mozilla" in ua else "api"
+
+    def _ask_context(self, lead_id=None):
+        """A compact snapshot of the model for the assistant to reason over."""
+        camps = load_json_file("campaigns.json", [])
+        leads = load_json_file("leads.json", [])
+        orgs = {o["id"]: o for o in load_json_file("organizations.json", [])}
+        lines = []
+        for c in camps:
+            cl = [l for l in leads if l.get("campaignId") == c["id"]]
+            by = {}
+            for l in cl:
+                by[l.get("state")] = by.get(l.get("state"), 0) + 1
+            lines.append("- %s (%s): %d leads; by state %s; goal: %s"
+                         % (c.get("name"), c.get("id"), len(cl), by, c.get("goal", "")))
+        ctx = "Campaigns:\n" + "\n".join(lines) + "\nTotals: %d leads, %d orgs." % (len(leads), len(orgs))
+        if lead_id:
+            l = next((x for x in leads if x.get("id") == lead_id), None)
+            if l:
+                o = orgs.get(l.get("orgId"), {})
+                ctx += ("\n\nFocused lead: %s at %s — campaign %s, state %s, waiting %s, "
+                        "followUp %s, notes: %s" % (l.get("name"), o.get("name", ""),
+                        l.get("campaignId"), l.get("state"), l.get("waiting"),
+                        l.get("followUpDate"), (l.get("notes", "") or "")[:200]))
+        return ctx
 
     def do_GET(self):
         p = urlparse(self.path).path
@@ -232,6 +388,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": "unknown id"}, 404)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
+        if p == "/import":
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                c = json.loads(self.rfile.read(n))
+                cid = str(c.get("campaignId", "")).strip()
+                rows = c.get("rows") or []
+                assert cid and isinstance(rows, list) and rows
+            except Exception:
+                return self._json({"error": "bad request"}, 400)
+            try:
+                return self._json(persist_import(cid, str(c.get("campaignName", "")).strip(),
+                                                 rows, str(c.get("defaultState", "")).strip()))
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+        if p == "/ask":
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                c = json.loads(self.rfile.read(n))
+                q = str(c.get("question", "")).strip()
+                assert q
+            except Exception:
+                return self._json({"error": "bad request"}, 400)
+            try:
+                ctx = self._ask_context(c.get("leadId"))
+                return self._json({"answer": llm_answer(q, c.get("history"), ctx)})
+            except Exception as e:
+                return self._json({"answer": "Assistant error: %s" % e})
         if p != "/comment":
             return self._json({"error": "not found"}, 404)
         try:

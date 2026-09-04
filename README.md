@@ -53,6 +53,9 @@ here so you can add one.)
   validates, applies onto freshly-loaded state, and commits. Unknown id → 404.
 - `POST /comment` — append a dated log entry `{key, text}`.
 - `POST /followup` — set/clear a follow-up date, or close/reopen an item.
+- `POST /import` — create leads (and their orgs) from mapped CSV rows into a campaign,
+  creating the campaign if it doesn't exist yet.
+- `POST /ask` — plain-English Q&A about your CRM via an LLM (see below).
 
 Writes are **deltas**, never the whole store, so concurrent edits don't overwrite each other.
 
@@ -83,4 +86,52 @@ node test_app_logic.js
 - If you want git-backed persistence, run `crm.py` inside a git repo with a remote; each write
   commits (and can push). Without a remote it still commits locally.
 
-MIT-licensed; use it however you like.
+## Onboarding: import a CSV
+
+New here? The fastest start is the **Import CSV** tab:
+
+1. Pick an existing campaign, or choose **➕ New campaign…** and name it (it's created with
+   default states: prospect → contacted → replied → won / lost).
+2. Choose a `.csv` file. It's parsed **in your browser** (quoted commas handled).
+3. Map columns → fields (**Name** required; Email, Organization, Role, Notes optional), pick an
+   initial state, and Import. Organizations are auto-created and de-duplicated by name.
+
+Works for any kind of list — press contacts, investors, academics, event invitees — one CSV per
+campaign.
+
+## Ask (plain-English assistant)
+
+The **Ask** tab lets you talk to Claude or ChatGPT about how the CRM works and what to do next,
+in plain English — handy while you're still learning the logic. It reads a compact summary of your
+data (and the person you're viewing) but is **read-only**: it explains and points you at the right
+control; it never changes data.
+
+Enable it by exporting an API key before starting the server:
+
+```
+export ANTHROPIC_API_KEY=sk-ant-...      # uses Claude (default model: claude-opus-5)
+# or
+export OPENAI_API_KEY=sk-...             # uses ChatGPT (default model: gpt-4o)
+python3 crm.py
+```
+
+Override the model with `CRM_LLM_MODEL`. With no key set, the Ask tab explains how to enable it.
+The key stays on your machine (server-side, in the env) — it's never sent to the browser, and the
+LLM call goes straight from your machine to the provider. Implemented with the standard library
+(`urllib`) so the project keeps **zero dependencies**.
+
+## Fork it and make it yours
+
+This is a starting point, not a product. The logic is small and readable on purpose — clone or
+fork the repo and change it to fit your workflow:
+
+- **`model.py`** — the entity rules (fields, states, validation). Widen or tighten them here.
+- **`app.html`** — the views and controls (one file, vanilla JS, no build step).
+- **`crm.py`** — the endpoints (add your own; each write is a git commit).
+
+If you're not sure how a piece works, run it and ask the **Ask** tab, or fork and experiment —
+nothing here is precious.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Use it however you like.

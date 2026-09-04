@@ -81,6 +81,8 @@ a.link:hover { text-decoration:underline; }
     <button class="tab" data-tab="today">Today</button>
     <button class="tab" data-tab="campaigns">Campaigns</button>
     <button class="tab" data-tab="people">People</button>
+    <button class="tab" data-tab="import">Import CSV</button>
+    <button class="tab" data-tab="ask">Ask</button>
   </div>
   <div id="view"></div>
 </div>
@@ -178,6 +180,8 @@ function render() {
   if (!MODEL) return;
   if (window.__tab === "today") renderToday();
   else if (window.__tab === "campaigns") renderCampaigns();
+  else if (window.__tab === "import") renderImport();
+  else if (window.__tab === "ask") renderAsk();
   else renderPerson();
 }
 
@@ -388,6 +392,115 @@ async function save(id, delta) {
     MODEL = AppLogic.buildModel(RAW.campaigns, RAW.orgs, leads, RAW.trail);
     render();
   } catch (e) { if(err) err.textContent = "server down — start crm.py"; }
+}
+
+// ---- Import CSV (onboarding) ----
+function renderImport() {
+  const camps = RAW.campaigns || [];
+  const opts = camps.map(c => '<option value="'+esc(c.id)+'">'+esc(CAMPLABEL[c.id]||c.name)+'</option>').join('')
+    + '<option value="__new">➕ New campaign…</option>';
+  view.innerHTML = '<div class="card"><h3>Import a list (CSV)</h3>'
+    + '<p class="muted">Upload a CSV of people, map the columns, pick a campaign, and import. New organizations are created automatically. The file is read in your browser and posted only to your local server.</p>'
+    + '<div class="controls"><label>Campaign <select id="impcamp" onchange="onImpCampChange()">'+opts+'</select></label>'
+    +   '<span id="impnewwrap" hidden>&nbsp;New name <input id="impnewname" placeholder="e.g. Investors"></span></div>'
+    + '<div class="controls"><label>CSV file <input type="file" id="impfile" accept=".csv,text/csv" onchange="onCsvFile(event)"></label></div>'
+    + '<div id="impmap"></div><div id="impresult" class="muted" style="margin-top:8px"></div></div>';
+}
+function onImpCampChange(){ document.getElementById("impnewwrap").hidden = document.getElementById("impcamp").value !== "__new"; }
+function onCsvFile(ev){
+  const f = ev.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { window.__csv = parseCSV(rd.result); drawMapping(); };
+  rd.readAsText(f);
+}
+function drawMapping(){
+  const csv = window.__csv || {}, hdrs = csv.headers || [];
+  const box = document.getElementById("impmap");
+  if (!hdrs.length){ box.innerHTML = '<p class="err">Could not read any columns from that file.</p>'; return; }
+  const colOpts = (ex) => hdrs.map((hh,ix) => '<option value="'+ix+'"'+(ex && ex.test(hh)?' selected':'')+'>'+esc(hh)+'</option>').join('');
+  const none = '<option value="-1">— none —</option>';
+  const fields = [["name","Name (required)",/name|full/i],["email","Email",/e-?mail/i],
+    ["org","Organization",/org|company|outlet|inst/i],["role","Role / title",/role|title|position/i],
+    ["notes","Notes",/note|comment/i]];
+  const cid = document.getElementById("impcamp").value;
+  const camp = (RAW.campaigns||[]).find(c => c.id === cid);
+  const states = camp ? camp.states : [{key:"prospect",label:"Prospect"},{key:"contacted",label:"Contacted"},{key:"replied",label:"Replied"},{key:"won",label:"Won"},{key:"lost",label:"Lost"}];
+  let h = '<div class="card"><h3>Map columns · '+csv.rows.length+' rows</h3>';
+  fields.forEach(f => h += '<div class="controls"><label style="min-width:140px">'+f[1]+'</label> <select id="map_'+f[0]+'">'+(f[0]==="name"?"":none)+colOpts(f[2])+'</select></div>');
+  h += '<div class="controls"><label style="min-width:140px">Initial state</label> <select id="impstate">'+states.map(s => '<option value="'+esc(s.key)+'">'+esc(s.label)+'</option>').join('')+'</select></div>';
+  h += '<div class="actionbar"><button class="btn win" onclick="doImport()">Import '+csv.rows.length+' rows</button></div></div>';
+  box.innerHTML = h;
+}
+async function doImport(){
+  const csv = window.__csv || {}, res = document.getElementById("impresult");
+  if (location.protocol === "file:"){ res.innerHTML = '<span class="err">Read-only — open via http://localhost:8787/app.html.</span>'; return; }
+  let cid = document.getElementById("impcamp").value, cname = "";
+  if (cid === "__new"){
+    cname = (document.getElementById("impnewname").value||"").trim();
+    if (!cname){ res.innerHTML = '<span class="err">Enter a name for the new campaign.</span>'; return; }
+    cid = cname.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "campaign";
+  }
+  const idx = (f) => { const el = document.getElementById("map_"+f); return el ? parseInt(el.value,10) : -1; };
+  const m = { name: idx("name"), email: idx("email"), org: idx("org"), role: idx("role"), notes: idx("notes") };
+  if (m.name < 0){ res.innerHTML = '<span class="err">Pick the Name column.</span>'; return; }
+  const get = (r,i) => i >= 0 ? (r[i]||"") : "";
+  const rows = csv.rows.map(r => ({ name:get(r,m.name), email:get(r,m.email), org:get(r,m.org), role:get(r,m.role), notes:get(r,m.notes) })).filter(x => x.name.trim());
+  res.textContent = "Importing…";
+  try {
+    const r = await fetch("/import", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ campaignId: cid, campaignName: cname, defaultState: document.getElementById("impstate").value, rows }) });
+    const d = await r.json();
+    if (!r.ok){ res.innerHTML = '<span class="err">Import failed: '+esc(d.error||r.status)+'</span>'; return; }
+    res.innerHTML = 'Imported <b>'+d.addedLeads+'</b> leads ('+d.addedOrgs+' new orgs)'+(d.createdCampaign?' into new campaign <b>'+esc(cid)+'</b>':'')+'. Refreshing…';
+    window.__csv = null;
+    await load();
+    setTab("people");
+  } catch(e){ res.innerHTML = '<span class="err">Server error — is crm.py running?</span>'; }
+}
+// Minimal RFC-4180-ish CSV parser: handles quoted fields, escaped quotes, newlines in quotes.
+function parseCSV(text){
+  const rows = []; let row = [], field = "", i = 0, q = false;
+  text = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  while (i < text.length){
+    const ch = text[i];
+    if (q){
+      if (ch === '"'){ if (text[i+1] === '"'){ field += '"'; i += 2; continue; } q = false; i++; continue; }
+      field += ch; i++; continue;
+    }
+    if (ch === '"'){ q = true; i++; continue; }
+    if (ch === ','){ row.push(field); field = ""; i++; continue; }
+    if (ch === '\n'){ row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += ch; i++;
+  }
+  if (field.length || row.length){ row.push(field); rows.push(row); }
+  const nonEmpty = rows.filter(r => r.some(c => c.trim() !== ""));
+  const headers = (nonEmpty.shift() || []).map(h => h.trim());
+  return { headers, rows: nonEmpty };
+}
+
+// ---- Ask (plain-English assistant) ----
+function renderAsk(){
+  const hist = window.__askHistory || [];
+  view.innerHTML = '<div class="card"><h3>Ask — plain English</h3>'
+    + '<p class="muted">Chat about how this CRM works and what to do next. It reads a summary of your data but <b>cannot change anything</b> — it explains and points you at the right control. Enable it by exporting <code>ANTHROPIC_API_KEY</code> (Claude) or <code>OPENAI_API_KEY</code> (ChatGPT) before starting the server.</p>'
+    + '<div id="asklog">' + hist.map(mm =>
+        '<div class="trail-row"><span class="trail-when">'+(mm.role==="user"?"you":"ai")+'</span><span>'+esc(mm.content).replace(/\n/g,"<br>")+'</span></div>').join('') + '</div>'
+    + '<div style="display:flex;gap:6px;margin-top:8px"><input id="askin" placeholder="e.g. What should I do today?  How do I close a lead as won?" style="flex:1;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8d8d2;border-radius:6px" onkeydown="if(event.key===\'Enter\')doAsk()"><button class="btn" onclick="doAsk()">Send</button></div>'
+    + '<div id="askerr" class="muted" style="margin-top:6px"></div></div>';
+  const box = document.getElementById("asklog"); if (box) box.scrollTop = box.scrollHeight;
+}
+async function doAsk(){
+  const inp = document.getElementById("askin"); const q = (inp.value||"").trim(); if (!q) return;
+  window.__askHistory = window.__askHistory || [];
+  window.__askHistory.push({ role:"user", content:q });
+  renderAsk(); document.getElementById("askerr").textContent = "thinking…";
+  try {
+    const r = await fetch("/ask", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ question:q, history: window.__askHistory.slice(0,-1), leadId: window.__personId || null }) });
+    const d = await r.json();
+    window.__askHistory.push({ role:"assistant", content: d.answer || d.error || "(no answer)" });
+    renderAsk();
+  } catch(e){ document.getElementById("askerr").textContent = "Server error — is crm.py running?"; }
 }
 
 document.querySelectorAll(".tab").forEach(b => b.onclick = () => setTab(b.dataset.tab));
