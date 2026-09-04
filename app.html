@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Barebones CRM — model view</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin:0; background:#f7f7f5; color:#1f1f1d; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; font-size:14px; line-height:1.45; }
+.wrap { max-width:1040px; margin:0 auto; padding:20px 18px 60px; }
+h1 { font-size:20px; font-weight:600; margin:0 0 2px; }
+.sub { color:#6b6b66; font-size:13px; margin:0 0 14px; }
+.banner { background:#fff3cd; border:1px solid #ffe08a; color:#7a5a00; padding:10px 12px; border-radius:8px; margin-bottom:14px; font-size:13px; }
+.tabs { display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid #e7e7e2; }
+.tab { font:inherit; font-size:14px; font-weight:600; padding:8px 16px; border:none; background:none; cursor:pointer; color:#6b6b66; border-bottom:2px solid transparent; margin-bottom:-1px; }
+.tab:hover { color:#1f1f1d; }
+.tab.active { color:#1f1f1d; border-bottom-color:#1f6feb; }
+.card { background:#fff; border:1px solid #e7e7e2; border-radius:10px; margin-bottom:10px; padding:12px 14px; }
+.card h3 { margin:0 0 2px; font-size:15px; }
+.muted { color:#8a8a82; font-size:12px; }
+.row { display:flex; justify-content:space-between; gap:12px; padding:8px 0; border-top:1px solid #f0f0ec; }
+.row:first-child { border-top:none; }
+.row .main { font-weight:600; }
+.row .meta { color:#8a8a82; font-size:12px; }
+a.link { color:#1f6feb; text-decoration:none; cursor:pointer; }
+a.link:hover { text-decoration:underline; }
+.badge { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:2px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+.b-active { background:#eaf1ff; color:#1f6feb; }
+.b-won { background:#e4f6ea; color:#1c7a3f; }
+.b-lost { background:#f1f1ee; color:#9a9a92; }
+.b-paid { background:#fde8e8; color:#b42318; }
+.b-vendor { background:#fde7d3; color:#9a5b00; }
+.b-mismatch { background:#fff0c2; color:#8a5a00; }
+.b-me { background:#fde8e8; color:#b42318; }
+.b-them { background:#eef0f2; color:#6b6b66; }
+.funnel { display:flex; height:14px; border-radius:7px; overflow:hidden; margin:8px 0 4px; background:#f1f1ee; }
+.funnel span { display:block; }
+.f-active { background:#1f6feb; }
+.f-won { background:#1c7a3f; }
+.f-lost { background:#c9c9c2; }
+.pct { font-variant-numeric:tabular-nums; font-weight:600; }
+.controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+.controls label { font-size:12px; color:#6b6b66; display:flex; gap:4px; align-items:center; }
+.controls select, .controls input { font:inherit; font-size:13px; padding:4px 6px; border:1px solid #d8d8d2; border-radius:6px; background:#fff; }
+.btn { font:inherit; font-size:12px; font-weight:600; padding:5px 11px; border:1px solid #d8d8d2; border-radius:6px; background:#fff; cursor:pointer; }
+.btn:hover { background:#f2f6ff; }
+.btn.win { border-color:#1c7a3f; color:#1c7a3f; }
+.btn.win:hover { background:#e4f6ea; }
+.btn.drop { border-color:#e0b4ae; color:#b42318; }
+.btn.drop:hover { background:#fde8e8; }
+.btn:disabled { opacity:.4; cursor:not-allowed; }
+.actionbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 2px; padding-top:8px; border-top:1px dashed #eee; }
+.actionbar b { font-size:12px; color:#6b6b66; }
+.flagbox { background:#fff8e6; border:1px solid #ffe08a; border-radius:8px; padding:8px 10px; margin:6px 0; font-size:13px; }
+.flagbox .frow { margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.flagbox input { font:inherit; font-size:12px; padding:3px 6px; border:1px solid #d8d8d2; border-radius:5px; }
+#search { width:100%; font:inherit; font-size:14px; padding:9px 12px; border:1px solid #d8d8d2; border-radius:8px; margin-bottom:12px; }
+.err { color:#b42318; font-size:12px; margin-left:8px; }
+.trail-row { display:flex; gap:8px; padding:4px 0; border-top:1px solid #f0f0ec; font-size:12px; }
+.trail-when { color:#9a9a92; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.dead { opacity:.55; }
+.kv { margin:2px 0; font-size:13px; }
+.kv b { font-weight:600; color:#4a4a46; }
+.ptable { width:100%; border-collapse:collapse; background:#fff; border:1px solid #e7e7e2; border-radius:10px; overflow:hidden; }
+.ptable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#6b6b66; padding:9px 12px; border-bottom:1px solid #e7e7e2; cursor:pointer; user-select:none; white-space:nowrap; }
+.ptable th:hover { color:#1f1f1d; }
+.ptable td { padding:8px 12px; border-top:1px solid #f0f0ec; font-size:13px; vertical-align:top; }
+.ptable tbody tr { cursor:pointer; }
+.ptable tbody tr:hover { background:#f2f6ff; }
+.ptable .pname { font-weight:600; color:#1f6feb; }
+.ptable .pnext { white-space:nowrap; font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Barebones CRM <span class="muted" style="font-weight:400">· model view</span></h1>
+  <p class="sub" id="counts">loading…</p>
+  <div id="banner"></div>
+  <div class="tabs">
+    <button class="tab" data-tab="today">Today</button>
+    <button class="tab" data-tab="campaigns">Campaigns</button>
+    <button class="tab" data-tab="people">People</button>
+  </div>
+  <div id="view"></div>
+</div>
+
+<script src="app-logic.js"></script>
+<script>
+const CAMPLABEL = {}; // optional display-name overrides by campaign id; empty = use each campaign's own name
+const STRENGTH_RANK = { strong:0, medium:1, stretch:2 };
+const view = document.getElementById("view");
+let MODEL = null, RAW = null;
+window.__tab = localStorage.getItem("_apptab") || "today";
+window.__personId = null;
+window.__psearch = "";
+window.__sort = { col: "name", dir: 1 };
+const PEOPLE_COLS = [
+  { key:"name",     label:"Name",      val: l => l.name || "" },
+  { key:"org",      label:"Org",       val: l => (MODEL.orgsById[l.orgId] || {}).name || "" },
+  { key:"campaign", label:"Campaign",  val: l => campName(l.campaignId) },
+  { key:"next",     label:"Next date", val: l => l.followUpDate || "" },
+  { key:"status",   label:"Status",    val: l => l.state || "" },
+];
+function sortBy(key) {
+  const s = window.__sort;
+  if (s.col === key) s.dir = -s.dir; else { s.col = key; s.dir = 1; }
+  drawPeople();
+}
+function drawPeople() {
+  const res = document.getElementById("results"); if (!res) return;
+  const q = (window.__psearch || "").trim().toLowerCase();
+  const hits = RAW.leads.filter(l => {
+    const o = MODEL.orgsById[l.orgId];
+    return !q || (l.name||"").toLowerCase().includes(q) || (o && o.name.toLowerCase().includes(q));
+  });
+  const s = window.__sort, col = PEOPLE_COLS.find(c => c.key === s.col) || PEOPLE_COLS[0];
+  hits.sort((a, b) => {
+    let av = col.val(a), bv = col.val(b);
+    if (s.col === "next") { av = av || "9999-99-99"; bv = bv || "9999-99-99"; } // blanks last
+    return s.dir * String(av).localeCompare(String(bv), undefined, { numeric:true, sensitivity:"base" });
+  });
+  const arrow = k => s.col === k ? (s.dir > 0 ? " ▲" : " ▼") : "";
+  let h = '<div class="muted" style="margin:0 0 8px">Showing ' + hits.length + ' of ' + RAW.leads.length + ' people' + (q ? ' matching "' + esc(q) + '"' : '') + '</div>';
+  h += '<table class="ptable"><thead><tr>'
+    + PEOPLE_COLS.map(c => '<th onclick="sortBy(\'' + c.key + '\')">' + c.label + arrow(c.key) + '</th>').join("")
+    + '</tr></thead><tbody>';
+  hits.forEach(l => {
+    const o = MODEL.orgsById[l.orgId];
+    h += '<tr onclick="openPerson(\'' + esc(l.id).replace(/'/g, "\\'") + '\')">'
+      + '<td class="pname">' + esc(l.name || "(no name)") + '</td>'
+      + '<td>' + esc(o ? o.name : "") + '</td>'
+      + '<td>' + esc(campName(l.campaignId)) + '</td>'
+      + '<td class="pnext">' + (l.followUpDate ? esc(ilTime(l.followUpDate)) : '<span class="muted">—</span>') + '</td>'
+      + '<td>' + esc(l.state || "") + '</td></tr>';
+  });
+  h += '</tbody></table>';
+  res.innerHTML = h;
+}
+
+function ilTime(iso, withTime) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  const opts = withTime ? { timeZone:"Asia/Jerusalem", day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" }
+                        : { timeZone:"Asia/Jerusalem", day:"numeric", month:"short", year:"numeric" };
+  return d.toLocaleString("en-GB", opts);
+}
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c])); }
+// A ⚠ in a note is an unresolved flag. flagText = the caveat (⚠ to end); stripFlag = the note without it.
+function flagText(notes){ const i = String(notes||"").indexOf("⚠"); return i < 0 ? null : notes.slice(i).trim(); }
+function stripFlag(notes){ const i = String(notes||"").indexOf("⚠"); return i < 0 ? notes : notes.slice(0, i).replace(/\s*·\s*$/,"").trim(); }
+function campName(id){ const c = MODEL.campaignsById[id]; return c ? (CAMPLABEL[c.id]||c.name) : id; }
+function kindBadge(kind){ const cls={active:"b-active",won:"b-won",lost:"b-lost"}[kind]||"b-lost"; return '<span class="badge '+cls+'">'+kind+'</span>'; }
+
+async function load() {
+  try {
+    const [campaigns, orgs, leads, trail, comments, observations] = await Promise.all(
+      ["/campaigns","/organizations","/leads","/trail","/comments","/observations"].map(u => fetch(u).then(r => r.json())));
+    RAW = { campaigns, orgs, leads, trail, comments, observations };
+    MODEL = AppLogic.buildModel(campaigns, orgs, leads, trail);
+    document.getElementById("counts").textContent =
+      leads.length + " leads · " + orgs.length + " orgs · " + campaigns.length + " campaigns";
+    document.getElementById("banner").innerHTML =
+      (location.protocol === "file:") ? '<div class="banner">Opened as a file — read-only. Run <b>python3 crm.py</b> and open http://localhost:8787/app.html to edit.</div>' : "";
+    render();
+  } catch (e) {
+    document.getElementById("banner").innerHTML =
+      '<div class="banner">Could not load data — is the server running? Start it with <b>python3 crm.py</b>.</div>';
+  }
+}
+
+function setTab(t){ window.__tab = t; localStorage.setItem("_apptab", t); render(); }
+function openPerson(id){ window.__personId = id; setTab("people"); }
+
+function render() {
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === window.__tab));
+  if (!MODEL) return;
+  if (window.__tab === "today") renderToday();
+  else if (window.__tab === "campaigns") renderCampaigns();
+  else renderPerson();
+}
+
+// ---- Today ----
+function renderToday() {
+  const now = new Date();
+  const obs = RAW.observations || {};
+  const rows = RAW.leads.filter(l => {
+    const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
+    const na = obs[l.id] && obs[l.id].needsAction;
+    return na || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
+  }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
+      || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
+  let h = '<div class="card"><h3>Due / owed today ('+rows.length+')</h3>';
+  if (!rows.length) h += '<p class="muted">Nothing due — inbox zero.</p>';
+  rows.forEach(l => {
+    const org = MODEL.orgsById[l.orgId];
+    h += '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
+      + (obs[l.id]&&obs[l.id].needsAction?'<span class="badge b-me">reply — act</span>':'')
+      + (l.waiting==="me"?'<span class="badge b-me">you owe</span>':'')+'</div>'
+      + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(campName(l.campaignId))+' · '+esc(l.state)+'</div></div>'
+      + '<div class="meta">'+(l.followUpDate?("due "+ilTime(l.followUpDate)):"")+'</div></div>';
+  });
+  h += '</div>';
+  view.innerHTML = h;
+}
+
+// ---- Campaigns ----
+function renderCampaigns() {
+  let h = "";
+  RAW.campaigns.forEach(c => {
+    const leads = MODEL.leadsByCampaign[c.id] || [];
+    const f = AppLogic.campaignFunnel(c, leads);
+    const unit = c.targetType === "organization"
+      ? new Set(leads.map(l => l.orgId)).size + " orgs"
+      : leads.length + " people";
+    const needs = leads.filter(l => l.waiting === "me" ||
+      (AppLogic.stateKind(c, l.state)==="active" && AppLogic.leadDue(l, new Date()))).length;
+    const pc = f.total || 1;
+    h += '<div class="card"><h3>'+esc(CAMPLABEL[c.id]||c.name)+'</h3>'
+      + '<div class="muted">'+esc(c.targetType)+' · '+unit+' · goal: '+esc(c.goal||"—")+'</div>'
+      + '<div class="funnel">'
+      +   '<span class="f-active" style="width:'+(100*f.byKind.active/pc)+'%"></span>'
+      +   '<span class="f-won" style="width:'+(100*f.byKind.won/pc)+'%"></span>'
+      +   '<span class="f-lost" style="width:'+(100*f.byKind.lost/pc)+'%"></span>'
+      + '</div>'
+      + '<div class="muted"><span class="pct">'+f.pctWon+'%</span> reached goal · '
+      +   f.byKind.active+' active · '+f.byKind.won+' won · '+f.byKind.lost+' lost · '
+      +   '<b>'+needs+'</b> need action</div>'
+      + '<details><summary class="link" style="margin-top:6px">show '+leads.length+' leads</summary>';
+    leads.slice().sort((a,b)=>String(a.state).localeCompare(String(b.state))).forEach(l => {
+      const org = MODEL.orgsById[l.orgId];
+      h += '<div class="row"><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a></div>'
+        + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(l.state)+'</div></div>';
+    });
+    h += '</details></div>';
+  });
+  view.innerHTML = h;
+}
+
+// ---- Person ----
+function renderPerson() {
+  if (!window.__personId) {
+    view.innerHTML = '<input id="search" placeholder="Search people by name or org…" autocomplete="off" value="'+esc(window.__psearch||"")+'"><div id="results"></div>';
+    const box = document.getElementById("search");
+    box.oninput = () => { window.__psearch = box.value; drawPeople(); };
+    drawPeople();
+    return;
+  }
+  const l = MODEL.leadsById[window.__personId];
+  if (!l) { view.innerHTML = '<div class="card">Lead not found. <a class="link" onclick="window.__personId=null;render()">back</a></div>'; return; }
+  const idJs = esc(l.id).replace(/'/g, "\\'");
+  const c = MODEL.campaignsById[l.campaignId], org = MODEL.orgsById[l.orgId];
+  const roll = org ? AppLogic.orgRollup(org, MODEL.leadsByOrg, MODEL.campaignsById) : null;
+  const fa = l.facts || {};
+  let badges = "";
+  if (fa.paidStatus === "paid") badges += '<span class="badge b-paid">paid</span>';
+  if (fa.paidStatus === "vendor-placed") badges += '<span class="badge b-vendor">vendor-placed</span>';
+  if (fa.formatRequested && fa.formatSent && fa.formatRequested !== fa.formatSent)
+    badges += '<span class="badge b-mismatch">format mismatch</span>';
+
+  let h = '<div style="margin-bottom:10px"><a class="link" onclick="window.__personId=null;render()">← all people</a></div>';
+  h += '<div class="card"><h3>'+esc(l.name)+' '+badges+'</h3>';
+  h += '<div class="kv"><b>Org:</b> '+esc(org?org.name:"—")
+     + (roll?(' <span class="badge '+(roll.alive?"b-active":"b-lost")+'">'+(roll.alive?"alive":"dead")+'</span> '
+        + '<span class="muted">'+roll.leadCount+' lead(s): '+roll.counts.active+' active / '+roll.counts.won+' won / '+roll.counts.lost+' lost</span>'):'')+'</div>';
+  h += '<div class="kv"><b>Campaign:</b> '+esc(campName(l.campaignId))+' · <b>state:</b> '+esc(l.state)+' '+kindBadge(AppLogic.stateKind(c,l.state))+'</div>';
+  const ob = (RAW.observations || {})[l.id];
+  if (ob && (ob.needsAction || (ob.suggestedState && ob.suggestedState !== l.state)))
+    h += '<div class="flagbox">🔔 <b>Bot signal:</b> '
+      + (ob.needsAction ? 'needs action' : '')
+      + (ob.suggestedState && ob.suggestedState !== l.state ? (ob.needsAction ? ' · ' : '') + 'suggests state "'+esc(ob.suggestedState)+'"' : '')
+      + (ob.reason ? ' — '+esc(ob.reason) : '')
+      + (ob.lastInbound ? ' <span class="muted">(last inbound '+ilTime(ob.lastInbound,true)+')</span>' : '')
+      + '</div>';
+  h += '<div class="kv"><b>Waiting on:</b> <span class="badge '+(l.waiting==="me"?"b-me":"b-them")+'">'+esc(l.waiting)+'</span></div>';
+  h += '<div class="kv"><b>Emails:</b> '+(l.emails&&l.emails.length?esc(l.emails.join(", ")):'<span class="muted">none on file</span>')+'</div>';
+  if (fa.paidStatus && fa.paidStatus!=="free") h += '<div class="kv"><b>Paid:</b> '+esc(fa.paidStatus)+(fa.amount?(" ("+esc(fa.amount)+")"):"")+'</div>';
+  if (fa.formatRequested || fa.formatSent) h += '<div class="kv"><b>Format:</b> asked '+esc(fa.formatRequested||"?")+' / sent '+esc(fa.formatSent||"?")+'</div>';
+  const flag = flagText(l.notes);
+  const noteBase = flag ? stripFlag(l.notes) : l.notes;
+  if (noteBase) h += '<div class="kv"><b>Notes:</b> '+esc(noteBase)+'</div>';
+  if (flag) {
+    h += '<div class="flagbox">⚠ <b>Unresolved flag:</b> '+esc(flag.replace(/^⚠\s*/,""))
+      + '<div class="frow">'
+      +   '<button class="btn win" onclick="resolveFlag(\''+idJs+'\',\'approve\')">✓ Approve</button>'
+      +   '<button class="btn drop" onclick="resolveFlag(\''+idJs+'\',\'ignore\')">✕ Ignore</button>'
+      +   '<span class="muted">or</span>'
+      +   '<input id="resolveinput" placeholder="write a resolution…" onkeydown="if(event.key===\'Enter\')resolveFlag(\''+idJs+'\',\'custom\')">'
+      +   '<button class="btn" onclick="resolveFlag(\''+idJs+'\',\'custom\')">Resolve</button>'
+      + '</div></div>';
+  }
+  if (l.gmailThreadId) h += '<div class="kv"><a class="link" href="https://mail.google.com/mail/u/0/#all/'+esc(l.gmailThreadId)+'" target="_blank">open Gmail thread ↗</a></div>';
+
+  // write-back controls
+  const stateOpts = (c && c.states || []).map(s => '<option value="'+esc(s.key)+'"'+(s.key===l.state?" selected":"")+'>'+esc(s.label)+'</option>').join("");
+  const wonState = (c && c.states || []).find(s => s.kind === "won");
+  const lostState = (c && c.states || []).find(s => s.kind === "lost");
+  h += '<div class="controls">'
+    + '<label>State <select onchange="save(\''+idJs+'\',{state:this.value})">'+stateOpts+'</select></label>'
+    + '<label>Follow-up <input type="date" value="'+esc(l.followUpDate||"")+'" onchange="save(\''+idJs+'\',{followUpDate:this.value||null})"></label>'
+    + '<label>Waiting <select onchange="save(\''+idJs+'\',{waiting:this.value})"><option value="them"'+(l.waiting==="them"?" selected":"")+'>them</option><option value="me"'+(l.waiting==="me"?" selected":"")+'>me</option></select></label>'
+    + '<span class="err" id="saveerr"></span></div>';
+  // Quick actions: schedule next touch (default 10 days), or close on win / drop
+  h += '<div class="actionbar">'
+    + '<b>Next touch:</b>'
+    + '<button class="btn" onclick="snooze(\''+idJs+'\',10)">+10 days</button>'
+    + '<label style="font-size:12px;color:#6b6b66">or <input type="number" id="ndays" value="10" min="1" style="width:52px"> days '
+    + '<button class="btn" onclick="snooze(\''+idJs+'\',parseInt(document.getElementById(\'ndays\').value,10)||10)">set</button></label>'
+    + '<span style="width:12px"></span><b>Close:</b>'
+    + (wonState ? '<button class="btn win" onclick="save(\''+idJs+'\',{state:\''+esc(wonState.key)+'\'})">✓ Won</button>'
+                : '<button class="btn win" disabled title="this campaign has no won state">✓ Won</button>')
+    + (lostState ? '<button class="btn drop" onclick="save(\''+idJs+'\',{state:\''+esc(lostState.key)+'\'})">✕ Drop</button>'
+                 : '<button class="btn drop" disabled title="this campaign has no lost state">✕ Drop</button>')
+    + '</div>';
+
+  // trail
+  const tr = (MODEL.trailByLead[l.id] || []).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  h += '<div style="margin-top:8px"><b>Trail</b>';
+  if (!tr.length) h += ' <span class="muted">— no trail events yet</span>';
+  tr.forEach(e => h += '<div class="trail-row"><span class="trail-when">'+ilTime(e.date,true)+'</span>'
+    + '<span>'+esc(e.direction||"")+' · '+esc(e.summary||"")+(e.gmailLink?(' <a class="link" href="'+esc(e.gmailLink)+'" target="_blank">↗</a>'):"")+'</span></div>');
+  h += '</div>';
+  // Log — your own dated notes & decisions (stored in comments.json, separate from the bot Trail)
+  const log = (RAW.comments || []).filter(x => x.key === l.id)
+    .slice().sort((a,b) => String(b.ts).localeCompare(String(a.ts)));
+  h += '<div style="margin-top:12px"><b>Log</b> <span class="muted">— your dated notes & decisions</span>';
+  h += '<div style="display:flex;gap:6px;margin:6px 0"><input id="noteinput" placeholder="Record a thought or decision…" '
+    + 'style="flex:1;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8d8d2;border-radius:6px" '
+    + 'onkeydown="if(event.key===\'Enter\')addNote(\''+idJs+'\')">'
+    + '<button class="btn" onclick="addNote(\''+idJs+'\')">Add</button></div>';
+  if (!log.length) h += '<span class="muted" style="font-size:12px">No log entries yet.</span>';
+  log.forEach(x => h += '<div class="trail-row"><span class="trail-when">'+ilTime(x.ts,true)+'</span>'
+    + '<span>'+esc(x.text)+(x.link?(' <a class="link" href="'+esc(x.link)+'" target="_blank">↗</a>'):"")+' <span class="muted">— '+esc(x.author||"")+'</span></span></div>');
+  h += '</div></div>';
+  view.innerHTML = h;
+}
+
+// Resolve a ⚠ flag on a note: record a dated decision in the Log, then strip the flag from the note.
+async function resolveFlag(id, verdict) {
+  const l = MODEL.leadsById[id]; if (!l) return;
+  const flag = flagText(l.notes || ""); if (!flag) return;
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html to resolve."); return; }
+  const custom = (document.getElementById("resolveinput") || {}).value;
+  const text = (custom && custom.trim())
+    ? "Flag resolved: " + custom.trim() + "  [" + flag + "]"
+    : (verdict === "approve" ? "✓ Approved flag: " : "✕ Ignored flag: ") + flag;
+  try {
+    const rc = await fetch("/comment", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ key: id, text }) });
+    if (rc.ok) RAW.comments = await rc.json();
+    const rl = await fetch("/lead", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ id, notes: stripFlag(l.notes || "") }) });
+    if (rl.ok) { RAW.leads = await rl.json(); MODEL = AppLogic.buildModel(RAW.campaigns, RAW.orgs, RAW.leads, RAW.trail); }
+    render();
+  } catch (e) { /* server down */ }
+}
+
+async function addNote(id) {
+  const inp = document.getElementById("noteinput");
+  const text = (inp && inp.value || "").trim();
+  if (!text) return;
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html to add notes."); return; }
+  try {
+    const r = await fetch("/comment", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ key: id, text }) });
+    if (!r.ok) return;
+    RAW.comments = await r.json(); // POST /comment returns the full comments list
+    render();
+  } catch (e) { /* server down — leave input as-is */ }
+}
+
+function snooze(id, days) {
+  const d = new Date();
+  d.setDate(d.getDate() + (days || 10));
+  save(id, { followUpDate: d.toISOString().slice(0, 10), waiting: "them" });
+}
+
+async function save(id, delta) {
+  const err = document.getElementById("saveerr");
+  if (location.protocol === "file:") { if(err) err.textContent = "read-only (open via localhost)"; return; }
+  try {
+    const r = await fetch("/lead", { method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(Object.assign({ id }, delta)) });
+    if (!r.ok) { if(err) err.textContent = r.status===404 ? "unknown id" : ("save failed ("+r.status+")"); return; }
+    const leads = await r.json();
+    RAW.leads = leads;
+    MODEL = AppLogic.buildModel(RAW.campaigns, RAW.orgs, leads, RAW.trail);
+    render();
+  } catch (e) { if(err) err.textContent = "server down — start crm.py"; }
+}
+
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+load();
+</script>
+</body>
+</html>

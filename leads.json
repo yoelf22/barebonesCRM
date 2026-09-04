@@ -1,0 +1,18 @@
+[
+ {
+  "id": "outreach:jane-doe",
+  "orgId": "outreach:example-org",
+  "campaignId": "outreach",
+  "name": "Jane Doe",
+  "emails": ["jane@example.com"],
+  "handles": {},
+  "role": "Sample contact",
+  "state": "contacted",
+  "strength": "medium",
+  "followUpDate": null,
+  "waiting": "them",
+  "facts": {"paidStatus": "free", "amount": null, "formatRequested": null, "formatSent": null, "physicalCopyOffered": false},
+  "gmailThreadId": null,
+  "notes": "Replace this sample with your own leads."
+ }
+]
