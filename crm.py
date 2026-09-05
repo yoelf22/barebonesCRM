@@ -335,6 +335,7 @@ def llm_answer(question, history, context):
         "per-person detail with controls). Controls: set state, schedule the next touch (+N days), "
         "mark Won or Drop, and add dated Log notes. Explain the logic in plain English and tell the "
         "user which control to click. You are ADVISORY and READ-ONLY: you cannot change data. "
+        "Be concise: 2-5 sentences, name specific leads, and skip caveats about the data snapshot. "
         "Here is a snapshot of their current data:\n" + context)
     msgs = (history or [])[-8:] + [{"role": "user", "content": question}]
 
@@ -345,10 +346,10 @@ def llm_answer(question, history, context):
         or (os.path.expanduser("~/.local/bin/claude") if os.path.exists(os.path.expanduser("~/.local/bin/claude")) else None)
     if claude_bin:
         convo = "\n\n".join("%s: %s" % (m["role"], m["content"]) for m in msgs)
-        cmd = [claude_bin, "-p", "--append-system-prompt", system]
-        mid = os.environ.get("CRM_LLM_MODEL")
-        if mid:
-            cmd += ["--model", mid]
+        # Default to sonnet: the CLI's own default may be Opus (~10s); sonnet ~halves the wait
+        # for an advisory Q&A. Override with CRM_LLM_MODEL.
+        mid = os.environ.get("CRM_LLM_MODEL", "sonnet")
+        cmd = [claude_bin, "-p", "--model", mid, "--append-system-prompt", system]
         try:
             r = subprocess.run(cmd, input=convo, capture_output=True, text=True,
                                timeout=180, cwd=tempfile.gettempdir())
@@ -429,6 +430,32 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             lines.append("- %s (%s): %d leads; by state %s; goal: %s"
                          % (c.get("name"), c.get("id"), len(cl), by, c.get("goal", "")))
         ctx = "Campaigns:\n" + "\n".join(lines) + "\nTotals: %d leads, %d orgs." % (len(leads), len(orgs))
+
+        # What actually needs attention now, so the assistant can name leads instead of
+        # deferring to the Today view: overdue, bot-flagged, and waiting-on-me.
+        today = time.strftime("%Y-%m-%d", time.gmtime())
+        obs = load_json_file("observations.json", {})
+        kind = {}
+        for c in camps:
+            for st in (c.get("states") or []):
+                kind[(c["id"], st.get("key"))] = st.get("kind")
+        def line(l):
+            o = orgs.get(l.get("orgId"), {})
+            return "  - %s (%s / %s, waiting %s, due %s)" % (l.get("name"), o.get("name", ""),
+                    l.get("state"), l.get("waiting"), l.get("followUpDate") or "—")
+        active = [l for l in leads if kind.get((l.get("campaignId"), l.get("state"))) == "active"]
+        overdue = [l for l in active if l.get("followUpDate") and l["followUpDate"] < today]
+        owed = [l for l in leads if l.get("waiting") == "me"]
+        flagged = []
+        for l in leads:
+            ob = obs.get(l.get("id")) or {}
+            if ob.get("needsAction"):
+                flagged.append("  - %s — %s" % (l.get("name"), ob.get("reason", "flagged")))
+        att = ""
+        if overdue: att += "\nOverdue (%d):\n" % len(overdue) + "\n".join(line(l) for l in overdue[:25])
+        if owed:    att += "\nWaiting on you (%d):\n" % len(owed) + "\n".join(line(l) for l in owed[:25])
+        if flagged: att += "\nBot-flagged (%d):\n" % len(flagged) + "\n".join(flagged[:25])
+        if att: ctx += "\n\nNeeds attention now:" + att
         if lead_id:
             l = next((x for x in leads if x.get("id") == lead_id), None)
             if l:
