@@ -190,13 +190,18 @@ function render() {
 }
 
 // ---- Today ----
+// A bot needsAction flag counts only until the user acts on the lead (a non-bot Log entry
+// newer than the inbound that raised it). The Person view still shows the raw signal.
+function flagged(l) {
+  const ob = (RAW.observations || {})[l.id];
+  return !!(ob && ob.needsAction && !AppLogic.actedSince(RAW.comments, l.id, ob.lastInbound || ob.ts));
+}
 function renderToday() {
   const now = new Date();
   const obs = RAW.observations || {};
   const rows = RAW.leads.filter(l => {
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
-    const na = obs[l.id] && obs[l.id].needsAction;
-    return na || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
+    return flagged(l) || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
   const today = now.toISOString().slice(0,10);
@@ -206,7 +211,7 @@ function renderToday() {
   const row = l => {
     const org = MODEL.orgsById[l.orgId];
     return '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
-      + (obs[l.id]&&obs[l.id].needsAction?('<span class="badge b-me">'+(String(obs[l.id].reason||"").startsWith("calendar:")?"calendar — check":"reply — act")+'</span>'):'')
+      + (flagged(l)?('<span class="badge b-me">'+(String(obs[l.id].reason||"").startsWith("calendar:")?"calendar — check":"reply — act")+'</span>'):'')
       + (l.waiting==="me"?'<span class="badge b-me">you owe</span>':'')+'</div>'
       + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(campName(l.campaignId))+' · '+esc(l.state)+'</div></div>'
       + '<div class="meta">'+(l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):"")+'</div></div>';

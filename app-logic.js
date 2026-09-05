@@ -53,7 +53,13 @@
     return { total, byKind, byState, pctWon: total ? Math.round(100 * byKind.won / total) : 0 };
   }
 
-  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel };
+  // A bot flag (needsAction) is stale once the user has acted on the lead after the
+  // inbound that raised it: any non-bot Log entry newer than `since` counts as acting.
+  function actedSince(comments, leadId, since) {
+    return (comments || []).some(x => x.key === leadId && x.via !== "bot" && String(x.ts || "") > String(since || ""));
+  }
+
+  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, actedSince };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);

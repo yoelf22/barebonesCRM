@@ -72,6 +72,8 @@ An object keyed by lead id. One entry per lead the bot has an opinion about.
   it on a bounce, because a bad address needs fixing.
   If `reason` starts with `calendar:` the badge reads "calendar, check" instead: use that when
   a booked date in the lead's `facts` disagrees with the calendar and needs a human look.
+  The badge disappears on its own once the user acts on the lead: any non-bot Log entry newer
+  than `lastInbound` counts as acting. The bot does not need to clear the flag itself.
 - `suggestedState` is a hint. The Person view shows it only when it differs from the state you
   set. Never suggest something that contradicts a decision you made after the event.
 - Overwrite the entry each run. This file is the bot's current view, not a history.

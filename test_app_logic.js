@@ -41,4 +41,10 @@ const e = L.campaignFunnel(campaigns[0], []);
 assert.strictEqual(e.total, 0);
 assert.strictEqual(e.pctWon, 0);
 
+// bot flag is stale once a non-bot Log entry postdates the inbound
+const cm = [{key:"a:acme",via:"bot",ts:"2026-09-03T12:00:00Z"},{key:"a:acme",via:"api",ts:"2026-09-05T09:00:00Z"}];
+assert.strictEqual(L.actedSince(cm, "a:acme", "2026-09-03T12:34:05Z"), true);
+assert.strictEqual(L.actedSince(cm, "a:acme", "2026-09-06T00:00:00Z"), false);
+assert.strictEqual(L.actedSince(cm, "a:other", "2026-09-03T12:34:05Z"), false);
+
 console.log("ok");
