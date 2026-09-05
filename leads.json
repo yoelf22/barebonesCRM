@@ -4,15 +4,71 @@
   "orgId": "outreach:example-org",
   "campaignId": "outreach",
   "name": "Jane Doe",
-  "emails": ["jane@example.com"],
+  "emails": [
+   "jane@example.com"
+  ],
   "handles": {},
   "role": "Sample contact",
   "state": "contacted",
   "strength": "medium",
   "followUpDate": null,
-  "waiting": "them",
-  "facts": {"paidStatus": "free", "amount": null, "formatRequested": null, "formatSent": null, "physicalCopyOffered": false},
+  "waiting": "me",
+  "facts": {
+   "paidStatus": "free",
+   "amount": null,
+   "formatRequested": null,
+   "formatSent": null,
+   "physicalCopyOffered": false
+  },
   "gmailThreadId": null,
-  "notes": "Replace this sample with your own leads."
+  "notes": "Sample: waiting on you, no date — shows in the Today pane."
+ },
+ {
+  "id": "outreach:sam-lee",
+  "orgId": "outreach:another-org",
+  "campaignId": "outreach",
+  "name": "Sam Lee",
+  "emails": [
+   "sam@example.com"
+  ],
+  "handles": {},
+  "role": "Sample contact",
+  "state": "replied",
+  "strength": "medium",
+  "followUpDate": "2026-08-20",
+  "waiting": "them",
+  "facts": {
+   "paidStatus": "free",
+   "amount": null,
+   "formatRequested": null,
+   "formatSent": null,
+   "physicalCopyOffered": false
+  },
+  "gmailThreadId": null,
+  "notes": "Sample: follow-up date in the past — shows in the Overdue pane."
+ },
+ {
+  "id": "outreach:ana-garcia",
+  "orgId": "outreach:example-org",
+  "campaignId": "outreach",
+  "name": "Ana Garcia",
+  "emails": [
+   "ana@example.com"
+  ],
+  "handles": {},
+  "role": "Sample contact",
+  "state": "contacted",
+  "strength": "medium",
+  "followUpDate": "2030-01-15",
+  "waiting": "me",
+  "facts": {
+   "paidStatus": "free",
+   "amount": null,
+   "formatRequested": null,
+   "formatSent": null,
+   "physicalCopyOffered": false
+  },
+  "gmailThreadId": null,
+  "notes": "Sample: future date and waiting on you — shows in the Future pane."
  }
 ]

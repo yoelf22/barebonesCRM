@@ -84,20 +84,18 @@
   </g>
   <!-- wordmark, matching the app.html header -->
   <text
-     x="129.79694"
-     y="35.78278"
+     x="129.79694" y="43.4"
      fill="#222222"
      font-weight="300"
      id="text150"
-     style="font-style:normal;font-variant:normal;font-weight:100;font-stretch:normal;font-size:28.3593px;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue, Thin';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;dominant-baseline:middle;fill:#222222;stroke:none;stroke-width:0.834098"
+     style="font-style:normal;font-variant:normal;font-weight:100;font-stretch:normal;font-size:28.3593px;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue, Thin';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#222222;stroke:none;stroke-width:0.834098"
      transform="scale(0.83409779,1.1989002)">barebønes</text>
   <text
-     x="174.67836"
-     y="57.275539"
+     x="174.67836" y="63.7"
      font-weight="700"
      transform="scale(1.2247449,0.81649657)"
      id="text152"
-     style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:41.6413px;font-family:Futura;-inkscape-font-specification:'Futura, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;dominant-baseline:middle;stroke:none;stroke-width:1.22474"><tspan
+     style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:41.6413px;font-family:Futura;-inkscape-font-specification:'Futura, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke:none;stroke-width:1.22474"><tspan
        style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:41.6413px;font-family:Futura;-inkscape-font-specification:'Futura, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
        id="tspan541">CRM</tspan></text>
 </svg>

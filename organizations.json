@@ -1,3 +1,18 @@
 [
- {"id": "outreach:example-org", "name": "Example Org", "sector": "Sample", "region": "—", "url": null, "campaignId": "outreach"}
+ {
+  "id": "outreach:example-org",
+  "name": "Example Org",
+  "sector": "Sample",
+  "region": "—",
+  "url": null,
+  "campaignId": "outreach"
+ },
+ {
+  "id": "outreach:another-org",
+  "name": "Another Org",
+  "sector": "Sample",
+  "region": "—",
+  "url": null,
+  "campaignId": "outreach"
+ }
 ]
