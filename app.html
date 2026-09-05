@@ -410,6 +410,7 @@ async function save(id, delta) {
     const leads = await r.json();
     RAW.leads = leads;
     MODEL = AppLogic.buildModel(RAW.campaigns, RAW.orgs, leads, RAW.trail);
+    const rc = await fetch("/comments"); if (rc.ok) RAW.comments = await rc.json();  // the save also wrote a Log line
     render();
   } catch (e) { if(err) err.textContent = "server down — start crm.py"; }
 }

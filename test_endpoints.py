@@ -46,5 +46,24 @@ def test_promote_and_dismiss(tmp=None):
     finally:
         crm.ROOT = root; crm.UNMATCHED = os.path.join(root, "inbox", "unmatched.json"); shutil.rmtree(d)
 
+def test_lead_save_logs_user_action():
+    # a human /lead write (state, date, waiting…) leaves a dated Log line, so the Today
+    # view can tell the user has acted on a bot flag — even when the value is unchanged
+    import os, shutil, tempfile, subprocess
+    d = tempfile.mkdtemp(); root = crm.ROOT
+    for f in ("campaigns.json","organizations.json","leads.json","comments.json"):
+        shutil.copy(os.path.join(root, f), d)
+    subprocess.run(["git","-C",d,"init","-q"]); crm.ROOT = d
+    try:
+        lid = json.load(open(os.path.join(d, "leads.json")))[0]["id"]
+        crm.persist_entity("leads.json", {"id": lid, "waiting": "me"}, crm.ENTITY["/lead"][1], "t", log=("You", "ui"))
+        c = json.load(open(os.path.join(d, "comments.json")))[-1]
+        assert c["key"] == lid and c["via"] == "ui" and c["author"] == "You" and c["text"] == "waiting → me", c
+        assert crm._delta_text({"id": lid, "state": "lost"}) == "state → lost"
+        assert crm._delta_text({"id": lid, "followUpDate": None}) == "follow-up cleared"
+        assert crm._delta_text({"id": lid, "notes": "long text"}) == "notes updated"
+    finally:
+        crm.ROOT = root; shutil.rmtree(d)
+
 if __name__ == "__main__":
-    test_get_leads_ok(); test_promote_and_dismiss(); print("ok")
+    test_get_leads_ok(); test_promote_and_dismiss(); test_lead_save_logs_user_action(); print("ok")

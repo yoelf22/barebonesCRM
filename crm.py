@@ -150,12 +150,31 @@ ENTITY = {
 }
 
 
-def persist_entity(fname, delta, allowed, message):
+def _delta_text(delta):
+    """One Log line for a human lead edit: 'state → passed', 'follow-up → 2026-09-15'."""
+    names = {"state": "state", "followUpDate": "follow-up", "waiting": "waiting"}
+    parts = []
+    for k, v in delta.items():
+        if k == "id":
+            continue
+        if k in names:
+            parts.append("%s cleared" % names[k] if v in (None, "") else "%s → %s" % (names[k], v))
+        else:
+            parts.append("%s updated" % k)
+    return " · ".join(parts)
+
+
+def persist_entity(fname, delta, allowed, message, log=None):
     """Delta write for leads/orgs/campaigns: pull -> apply -> commit -> push.
 
     Mirrors persist()/persist_followup() above: same pull-before-write, same
     push-then-retry-on-conflict. model.apply_delta raises KeyError on an
     unknown id, which do_POST turns into a 404.
+
+    `log=(author, via)` — for lead edits, also append a Log line to comments.json in
+    the same commit. A human edit is how the user "acts" on a lead, and the Today view
+    drops a bot flag only once a non-bot Log entry postdates it; without this line,
+    pressing Drop on a lead that is already dropped changed nothing visible.
     """
     with LOCK:
         git("pull", "--no-edit", "--no-rebase", "-q")
@@ -163,6 +182,14 @@ def persist_entity(fname, delta, allowed, message):
         model.apply_delta(items, delta, allowed)   # raises KeyError on unknown id
         model.save(os.path.join(ROOT, fname), items)
         git("add", fname)
+        if log and fname == "leads.json":
+            comments = load_json_file("comments.json", [])
+            comments.append({"key": delta["id"], "author": log[0], "via": log[1],
+                             "text": _delta_text(delta),
+                             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+            with open(os.path.join(ROOT, "comments.json"), "w", encoding="utf-8") as f:
+                json.dump(comments, f, indent=1, ensure_ascii=False)
+            git("add", "comments.json")
         git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
             "commit", "-q", "-m", message)
         if git("push", "-q", "origin", "main").returncode != 0:
@@ -422,9 +449,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 return self._json({"error": "bad request"}, 400)
             fname, allowed = ENTITY[p]
+            via = self._via()
             try:
                 return self._json(persist_entity(fname, delta, allowed,
-                                  f"{p[1:]}: {delta['id']} ({self._via()})"))
+                                  f"{p[1:]}: {delta['id']} ({via})",
+                                  log=("Yoel" if via == "ui" else "Claude", via)))
             except KeyError:
                 return self._json({"error": "unknown id"}, 404)
             except Exception as e:
