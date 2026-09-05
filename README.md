@@ -1,4 +1,4 @@
-# <img src="logo.svg" width="36" height="30" alt=""> barebonesCRM
+# <img src="logo.svg" width="40" height="20" alt=""> barebonesCRM
 
 A CRM for one person running a few outreach campaigns. It is a folder: three JSON files,
 a Python script from the standard library, one HTML page, and git as the database. Clone it,
