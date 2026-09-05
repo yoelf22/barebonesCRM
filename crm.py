@@ -475,7 +475,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 return self._json(persist_entity(fname, delta, allowed,
                                   f"{p[1:]}: {delta['id']} ({via})",
-                                  log=("Yoel" if via == "ui" else "Claude", via)))
+                                  log=("You" if via == "ui" else "Claude", via)))
             except KeyError:
                 return self._json({"error": "unknown id"}, 404)
             except Exception as e:
