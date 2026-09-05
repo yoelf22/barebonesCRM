@@ -201,7 +201,8 @@ function renderToday() {
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
   const today = now.toISOString().slice(0,10);
   const overdue = rows.filter(l => l.followUpDate && l.followUpDate < today);
-  const current = rows.filter(l => !overdue.includes(l));
+  const future  = rows.filter(l => l.followUpDate && l.followUpDate > today);   // surfaced by a bot flag or "you owe"
+  const current = rows.filter(l => !overdue.includes(l) && !future.includes(l));
   const row = l => {
     const org = MODEL.orgsById[l.orgId];
     return '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
@@ -213,6 +214,7 @@ function renderToday() {
   let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
     + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
   if (overdue.length) h += '<div class="card"><h3>Overdue ('+overdue.length+')</h3>' + overdue.map(row).join('') + '</div>';
+  if (future.length)  h += '<div class="card"><h3>Future, flagged ('+future.length+')</h3>' + future.map(row).join('') + '</div>';
   view.innerHTML = h;
 }
 
