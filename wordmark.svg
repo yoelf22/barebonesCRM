@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="420"
+   height="80"
+   viewBox="0 0 420 80"
+   fill="#4a1d7a"
+   stroke="#4a1d7a"
+   stroke-linecap="round"
+   version="1.1"
+   id="svg156"
+   sodipodi:docname="wordmark.svg"
+   inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs160" />
+  <sodipodi:namedview
+     id="namedview158"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="1.2416994"
+     inkscape:cx="219.85998"
+     inkscape:cy="112.74871"
+     inkscape:current-layer="svg156" />
+  <!-- fishbone from logo.svg, scaled 2.4x -->
+  <g
+     transform="matrix(2.4,0,0,2.4,6,-7.3317164)"
+     id="g148">
+    <path
+       d="M 2,20 C 2,14.5 7,11 12,11 V 29 C 7,29 2,25.5 2,20 Z m 5.5,-2.5 m -1.7,0 a 1.7,1.7 0 1 0 3.4,0 1.7,1.7 0 1 0 -3.4,0 z"
+       fill-rule="evenodd"
+       stroke="none"
+       id="path132" />
+    <rect
+       x="12"
+       y="18.6"
+       width="21"
+       height="2.8"
+       rx="1.4"
+       stroke="none"
+       id="rect134" />
+    <g
+       stroke-width="2.4"
+       fill="none"
+       id="g144">
+      <line
+         x1="16"
+         y1="11.5"
+         x2="16"
+         y2="28.5"
+         id="line136" />
+      <line
+         x1="20"
+         y1="12.5"
+         x2="20"
+         y2="27.5"
+         id="line138" />
+      <line
+         x1="24"
+         y1="13.5"
+         x2="24"
+         y2="26.5"
+         id="line140" />
+      <line
+         x1="28"
+         y1="14.5"
+         x2="28"
+         y2="25.5"
+         id="line142" />
+    </g>
+    <path
+       d="m 32,20 6.5,-6.5 v 13 z"
+       stroke-width="1.5"
+       stroke-linejoin="round"
+       id="path146" />
+  </g>
+  <!-- wordmark, matching the app.html header -->
+  <text
+     x="129.79694"
+     y="35.78278"
+     fill="#222222"
+     font-weight="300"
+     id="text150"
+     style="font-style:normal;font-variant:normal;font-weight:100;font-stretch:normal;font-size:28.3593px;font-family:'Helvetica Neue';-inkscape-font-specification:'Helvetica Neue, Thin';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;dominant-baseline:middle;fill:#222222;stroke:none;stroke-width:0.834098"
+     transform="scale(0.83409779,1.1989002)">barebønes</text>
+  <text
+     x="174.67836"
+     y="57.275539"
+     font-weight="700"
+     transform="scale(1.2247449,0.81649657)"
+     id="text152"
+     style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:41.6413px;font-family:Futura;-inkscape-font-specification:'Futura, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;dominant-baseline:middle;stroke:none;stroke-width:1.22474"><tspan
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:41.6413px;font-family:Futura;-inkscape-font-specification:'Futura, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal"
+       id="tspan541">CRM</tspan></text>
+</svg>
