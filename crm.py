@@ -319,12 +319,13 @@ def persist_import(campaign_id, campaign_name, rows, default_state, dismiss_link
 
 
 def llm_answer(question, history, context):
-    """Plain-English Q&A about the CRM, via raw HTTP so barebonesCRM keeps zero
-    dependencies. Read-only/advisory. Provider picked by whichever key is set:
-    ANTHROPIC_API_KEY (Claude) or OPENAI_API_KEY (ChatGPT). Override the model with
-    CRM_LLM_MODEL.
+    """Plain-English Q&A about the CRM. Read-only/advisory. Provider order:
+    (1) a local Claude Code CLI (`claude -p`) if installed — uses the user's own logged-in
+        session, so NO API key is needed; (2) ANTHROPIC_API_KEY (Claude) or (3) OPENAI_API_KEY
+        (ChatGPT) over raw HTTP, keeping zero dependencies. Override the model with CRM_LLM_MODEL
+        (and the CLI path with CRM_CLAUDE_BIN).
     """
-    import urllib.request
+    import urllib.request, shutil, tempfile
     system = (
         "You are a friendly assistant helping someone learn and operate 'barebonesCRM', a "
         "small file-based CRM. Data model: Campaigns contain Organizations which contain Leads. "
@@ -336,6 +337,26 @@ def llm_answer(question, history, context):
         "user which control to click. You are ADVISORY and READ-ONLY: you cannot change data. "
         "Here is a snapshot of their current data:\n" + context)
     msgs = (history or [])[-8:] + [{"role": "user", "content": question}]
+
+    # (1) Local Claude Code CLI — the user's installed `claude`, no API key. Run from a temp
+    # dir so it does not pick up this repo's CLAUDE.md; the question goes on stdin (no shell
+    # injection); --append-system-prompt carries the CRM context.
+    claude_bin = os.environ.get("CRM_CLAUDE_BIN") or shutil.which("claude") \
+        or (os.path.expanduser("~/.local/bin/claude") if os.path.exists(os.path.expanduser("~/.local/bin/claude")) else None)
+    if claude_bin:
+        convo = "\n\n".join("%s: %s" % (m["role"], m["content"]) for m in msgs)
+        cmd = [claude_bin, "-p", "--append-system-prompt", system]
+        mid = os.environ.get("CRM_LLM_MODEL")
+        if mid:
+            cmd += ["--model", mid]
+        try:
+            r = subprocess.run(cmd, input=convo, capture_output=True, text=True,
+                               timeout=180, cwd=tempfile.gettempdir())
+            if r.returncode == 0 and r.stdout.strip():
+                return r.stdout.strip()
+        except Exception:
+            pass  # fall through to the HTTP providers below
+
     ank = os.environ.get("ANTHROPIC_API_KEY")
     opk = os.environ.get("OPENAI_API_KEY")
     if ank:
@@ -358,8 +379,9 @@ def llm_answer(question, history, context):
         with urllib.request.urlopen(req, timeout=90) as r:
             d = json.loads(r.read())
         return d["choices"][0]["message"]["content"].strip()
-    return ("No LLM key set. Export ANTHROPIC_API_KEY (for Claude) or OPENAI_API_KEY (for ChatGPT) "
-            "before starting crm.py, then reload — and you can chat with it in plain English.")
+    return ("No assistant available. Install Claude Code (the `claude` CLI) to use your own "
+            "logged-in session with no API key, or export ANTHROPIC_API_KEY / OPENAI_API_KEY "
+            "before starting crm.py, then reload.")
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -453,7 +475,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 return self._json(persist_entity(fname, delta, allowed,
                                   f"{p[1:]}: {delta['id']} ({via})",
-                                  log=("You" if via == "ui" else "Claude", via)))
+                                  log=("Yoel" if via == "ui" else "Claude", via)))
             except KeyError:
                 return self._json({"error": "unknown id"}, 404)
             except Exception as e:

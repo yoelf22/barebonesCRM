@@ -593,7 +593,7 @@ function parseCSV(text){
 function renderAsk(){
   const hist = window.__askHistory || [];
   view.innerHTML = '<div class="card"><h3>Ask — plain English</h3>'
-    + '<p class="muted">Chat about how this CRM works and what to do next. It reads a summary of your data but <b>cannot change anything</b> — it explains and points you at the right control. Enable it by exporting <code>ANTHROPIC_API_KEY</code> (Claude) or <code>OPENAI_API_KEY</code> (ChatGPT) before starting the server.</p>'
+    + '<p class="muted">Chat about how this CRM works and what to do next. It reads a summary of your data but <b>cannot change anything</b> — it explains and points you at the right control. It uses your locally installed Claude Code (the <code>claude</code> CLI) with no API key; if that is not installed it falls back to <code>ANTHROPIC_API_KEY</code> or <code>OPENAI_API_KEY</code> set before the server starts.</p>'
     + '<div id="asklog">' + hist.map(mm =>
         '<div class="trail-row"><span class="trail-when">'+(mm.role==="user"?"you":"ai")+'</span><span>'+esc(mm.content).replace(/\n/g,"<br>")+'</span></div>').join('') + '</div>'
     + '<div style="display:flex;gap:6px;margin-top:8px"><input id="askin" placeholder="e.g. What should I do today?  How do I close a lead as won?" style="flex:1;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8d8d2;border-radius:6px" onkeydown="if(event.key===\'Enter\')doAsk()"><button class="btn" onclick="doAsk()">Send</button></div>'
