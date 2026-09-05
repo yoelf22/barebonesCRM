@@ -300,6 +300,13 @@ function renderPerson() {
       + '</div>';
   h += '<div class="kv"><b>Waiting on:</b> <span class="badge '+(l.waiting==="me"?"b-me":"b-them")+'">'+esc(l.waiting)+'</span></div>';
   h += '<div class="kv"><b>Emails:</b> '+(l.emails&&l.emails.length?esc(l.emails.join(", ")):'<span class="muted">none on file</span>')+'</div>';
+  if (l.role) h += '<div class="kv"><b>Role:</b> '+esc(l.role)+'</div>';
+  const HANDLES = { linkedin:"LinkedIn", x:"X", website:"Website" };
+  const hs = l.handles || {};
+  const links = [];
+  Object.keys(HANDLES).forEach(k => { const u = safeUrl(hs[k]); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">'+HANDLES[k]+' ↗</a>'); });
+  { const u = org && safeUrl(org.url); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">Org site ↗</a>'); }
+  if (links.length) h += '<div class="kv"><b>Links:</b> '+links.join(' · ')+'</div>';
   if (fa.paidStatus && fa.paidStatus!=="free") h += '<div class="kv"><b>Paid:</b> '+esc(fa.paidStatus)+(fa.amount?(" ("+esc(fa.amount)+")"):"")+'</div>';
   if (fa.formatRequested || fa.formatSent) h += '<div class="kv"><b>Format:</b> asked '+esc(fa.formatRequested||"?")+' / sent '+esc(fa.formatSent||"?")+'</div>';
   const flag = flagText(l.notes);
@@ -325,6 +332,12 @@ function renderPerson() {
     + '<label>Follow-up <input type="date" value="'+esc(l.followUpDate||"")+'" onchange="save(\''+idJs+'\',{followUpDate:this.value||null})"></label>'
     + '<label>Waiting <select onchange="save(\''+idJs+'\',{waiting:this.value})"><option value="them"'+(l.waiting==="them"?" selected":"")+'>them</option><option value="me"'+(l.waiting==="me"?" selected":"")+'>me</option></select></label>'
     + '<span class="err" id="saveerr"></span></div>';
+  h += '<div class="controls">'
+    + '<label>Role <input value="'+esc(l.role||"")+'" placeholder="title / who they are" onchange="save(\''+idJs+'\',{role:this.value.trim()||null})"></label>'
+    + '<label>LinkedIn <input value="'+esc((l.handles||{}).linkedin||"")+'" placeholder="https://linkedin.com/in/…" onchange="saveHandle(\''+idJs+'\',\'linkedin\',this.value)"></label>'
+    + '<label>X <input value="'+esc((l.handles||{}).x||"")+'" placeholder="https://x.com/…" onchange="saveHandle(\''+idJs+'\',\'x\',this.value)"></label>'
+    + '<label>Website <input value="'+esc((l.handles||{}).website||"")+'" placeholder="https://…" onchange="saveHandle(\''+idJs+'\',\'website\',this.value)"></label>'
+    + '</div>';
   // Quick actions: schedule next touch (default 10 days), or close on win / drop
   h += '<div class="actionbar">'
     + '<b>Next touch:</b>'
@@ -359,6 +372,15 @@ function renderPerson() {
 }
 
 // Resolve a ⚠ flag on a note: record a dated decision in the Log, then strip the flag from the note.
+// Only render user/bot-entered URLs as links if they are real http(s) URLs (never javascript:).
+function safeUrl(u){ return /^https?:\/\//i.test(String(u||"")) ? u : null; }
+// Merge one handle into the lead's handles map and persist the whole map (apply_delta replaces it).
+function saveHandle(id, key, val){
+  const l = MODEL.leadsById[id]; const h = Object.assign({}, l.handles || {});
+  const v = (val||"").trim(); if (v) h[key] = v; else delete h[key];
+  save(id, { handles: h });
+}
+
 // A write does a git commit+push and can take a few seconds. Disable the detail's buttons
 // and show "saving…" the instant a button is clicked, so it never looks dead. render() at
 // the end of each handler rebuilds the detail, which re-enables everything.
