@@ -199,17 +199,20 @@ function renderToday() {
     return na || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
-  let h = '<div class="card"><h3>Due / owed today ('+rows.length+')</h3>';
-  if (!rows.length) h += '<p class="muted">Nothing due — inbox zero.</p>';
-  rows.forEach(l => {
+  const today = now.toISOString().slice(0,10);
+  const overdue = rows.filter(l => l.followUpDate && l.followUpDate < today);
+  const current = rows.filter(l => !overdue.includes(l));
+  const row = l => {
     const org = MODEL.orgsById[l.orgId];
-    h += '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
+    return '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
       + (obs[l.id]&&obs[l.id].needsAction?('<span class="badge b-me">'+(String(obs[l.id].reason||"").startsWith("calendar:")?"calendar — check":"reply — act")+'</span>'):'')
       + (l.waiting==="me"?'<span class="badge b-me">you owe</span>':'')+'</div>'
       + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(campName(l.campaignId))+' · '+esc(l.state)+'</div></div>'
-      + '<div class="meta">'+(l.followUpDate?((l.followUpDate < now.toISOString().slice(0,10) ? "overdue since " : "due ")+ilTime(l.followUpDate)):"")+'</div></div>';
-  });
-  h += '</div>';
+      + '<div class="meta">'+(l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):"")+'</div></div>';
+  };
+  let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
+    + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
+  if (overdue.length) h += '<div class="card"><h3>Overdue ('+overdue.length+')</h3>' + overdue.map(row).join('') + '</div>';
   view.innerHTML = h;
 }
 
