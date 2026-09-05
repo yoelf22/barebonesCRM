@@ -50,7 +50,8 @@ There is no database, no build step, no framework, and no dependency to install.
   the page and accepts small delta writes. Each write is applied to fresh state and committed,
   so git history is your audit trail and your undo.
 - **The page is one file**, `app.html`, in vanilla JavaScript. Three views (Today, Campaigns,
-  People) plus a CSV importer and a plain-English Ask tab. No bundler to keep alive.
+  People) plus a CSV importer and a plain-English Ask tab. Today splits into Today / Overdue /
+  Future-flagged; a person card shows and edits role and LinkedIn/X/website links. No bundler.
 - **The rules live in one module**, `model.py`. Entity shapes, validation, and how a
   delta is applied. If you want a new field or a new state, this is the only file
   you have to understand first.
@@ -83,8 +84,9 @@ Know these before you adopt it.
 - **The schema is opinionated.** The `facts` block on a lead reflects the outreach it was
   extracted from (paid or free, format sent, physical copy offered). Edit `model.py` to make
   it yours rather than working around it.
-- **The Ask tab needs an API key** and sends a compact summary of your data to Claude or
-  ChatGPT. Leave the key unset and it stays off.
+- **The Ask tab needs an assistant.** It uses a locally installed Claude Code (`claude`) with
+  no API key, or falls back to an `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` you set. With neither,
+  it stays off. Either way it sends a compact summary of your data to the model.
 
 If those constraints fit, the rest of this file is everything you need.
 
@@ -118,10 +120,12 @@ printf '[]' > leads.json; printf '[]' > organizations.json; printf '[]' > campai
 Then use the **Import CSV** tab. It creates the campaign, maps your columns and de-duplicates
 organizations by name. One CSV per campaign. Details under Onboarding below.
 
-**4. Optional: the Ask tab.** Export one API key before starting the server and the Ask tab
-answers questions about your CRM in plain English. Skip it and everything else works.
+**4. Optional: the Ask tab.** If you have Claude Code installed, the Ask tab just works — it
+runs the local `claude` CLI with your own logged-in session, no key. Otherwise export one API
+key before starting the server. Skip it and everything else works.
 
 ```
+# nothing to do if `claude` (Claude Code) is on your PATH, or:
 export ANTHROPIC_API_KEY=sk-ant-...      # Claude, or
 export OPENAI_API_KEY=sk-...             # ChatGPT
 python3 crm.py
@@ -218,23 +222,26 @@ campaign.
 ## Ask (plain-English assistant)
 
 The **Ask** tab lets you talk to Claude or ChatGPT about how the CRM works and what to do next,
-in plain English — handy while you're still learning the logic. It reads a compact summary of your
-data (and the person you're viewing) but is **read-only**: it explains and points you at the right
-control; it never changes data.
+in plain English. It reads a compact summary of your data — campaign funnels plus what needs
+attention now (overdue, waiting-on-you, and bot-flagged leads) and the person you're viewing —
+but is **read-only**: it explains and points you at the right control; it never changes data.
 
-Enable it by exporting an API key before starting the server:
+Provider order:
+
+1. **Local Claude Code.** If the `claude` CLI is on your PATH, the Ask tab uses it with your own
+   logged-in session — **no API key**. It runs `claude -p` from a temp dir (question on stdin),
+   defaulting to the `sonnet` model for speed.
+2. **API key.** With no CLI, export `ANTHROPIC_API_KEY` (Claude) or `OPENAI_API_KEY` (ChatGPT)
+   before starting the server.
 
 ```
-export ANTHROPIC_API_KEY=sk-ant-...      # uses Claude (default model: claude-opus-5)
-# or
-export OPENAI_API_KEY=sk-...             # uses ChatGPT (default model: gpt-4o)
+export ANTHROPIC_API_KEY=sk-ant-...      # only needed if you have no local `claude`
 python3 crm.py
 ```
 
-Override the model with `CRM_LLM_MODEL`. With no key set, the Ask tab explains how to enable it.
-The key stays on your machine (server-side, in the env) — it's never sent to the browser, and the
-LLM call goes straight from your machine to the provider. Implemented with the standard library
-(`urllib`) so the project keeps **zero dependencies**.
+Override the model with `CRM_LLM_MODEL` (and the CLI path with `CRM_CLAUDE_BIN`). An API key
+stays server-side, never sent to the browser. The HTTP paths use the standard library (`urllib`)
+so the project keeps **zero dependencies**.
 
 ## Fork it and make it yours
 
