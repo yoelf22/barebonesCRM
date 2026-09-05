@@ -2,3 +2,4 @@
 __pycache__/
 *.pyc
 raw-dump.json
+.playwright-mcp/
