@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg528"
+   inkscape:version="1.2.2 (b0a84865, 2022-12-01)"
+   sodipodi:docname="barebonesCRM_logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview530"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="0.49399628"
+     inkscape:cx="273.28141"
+     inkscape:cy="611.34064"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs525" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="path753"
+       style="fill:#000080;stroke:#000000;stroke-width:0.529167;stroke-linejoin:bevel;stroke-dasharray:1.5875, 1.05833"
+       d="m 161.75033,59.42583 c -13.80478,-2.6e-5 -24.99581,10.682233 -24.99589,23.859526 0.002,3.027217 0.60695,6.026467 1.78336,8.837703 -25.25677,7.904341 -52.406856,6.342113 -80.512918,0 0.431177,-1.48508 0.651776,-3.015379 0.656291,-4.552694 -7.1e-5,-9.830522 -8.647423,-17.799754 -19.314584,-17.799947 -10.667363,-6.9e-5 -19.315029,7.96924 -19.3151,17.799947 0.0051,6.672028 4.058605,12.781155 10.500651,15.825905 -5.026036,4.5079 -7.877521,10.7977 -7.879622,17.38085 -2.23e-4,13.1775 11.190892,23.86008 24.99589,23.86005 13.691983,-0.005 24.831869,-10.52305 24.985555,-23.59185 29.682587,-6.9187 57.768187,-2.65851 86.082597,0 2.02836,8.06851 9.82728,13.78168 18.81436,13.78263 10.66716,-2e-4 19.31451,-7.96943 19.31458,-17.79995 -9.1e-4,-8.89323 -7.12408,-16.42125 -16.68425,-17.632517 4.22093,-4.398003 6.5631,-10.14558 6.56497,-16.110127 -8e-5,-13.177293 -11.19111,-23.859552 -24.99589,-23.859526 z"
+       sodipodi:nodetypes="ccccccccccccccccc" />
+  </g>
+</svg>
