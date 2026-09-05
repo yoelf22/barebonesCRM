@@ -196,6 +196,11 @@ function flagged(l) {
   const ob = (RAW.observations || {})[l.id];
   return !!(ob && ob.needsAction && !AppLogic.actedSince(RAW.comments, l.id, ob.lastInbound || ob.ts));
 }
+// For a live calendar flag, the bot's reason minus its prefix — "event is 6 May 09:00, CRM says 2027-05-05".
+function cal(l) {
+  const r = flagged(l) ? String((RAW.observations[l.id] || {}).reason || "") : "";
+  return r.startsWith("calendar:") ? r.slice(9).trim() : "";
+}
 function renderToday() {
   const now = new Date();
   const obs = RAW.observations || {};
@@ -214,7 +219,7 @@ function renderToday() {
       + (flagged(l)?('<span class="badge b-me">'+(String(obs[l.id].reason||"").startsWith("calendar:")?"calendar — check":"reply — act")+'</span>'):'')
       + (l.waiting==="me"?'<span class="badge b-me">you owe</span>':'')+'</div>'
       + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(campName(l.campaignId))+' · '+esc(l.state)+'</div></div>'
-      + '<div class="meta">'+(l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):"")+'</div></div>';
+      + '<div class="meta">'+(cal(l) ? esc(cal(l)) : (l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):""))+'</div></div>';
   };
   let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
     + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
