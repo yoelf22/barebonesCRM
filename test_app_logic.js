@@ -6,17 +6,17 @@ const campaigns = [{id:"a",name:"Amp",targetType:"organization",goal:"g",
   states:[{key:"replied",label:"Replied",kind:"active"},
           {key:"published",label:"Published",kind:"won"},
           {key:"passed",label:"Passed",kind:"lost"}]}];
-const orgs = [{id:"a:acme",name:"Acme",sector:"Blog",region:null,url:null,campaignId:"a"}];
+const orgs = [{id:"a:bookviral",name:"BookViral",sector:"Blog",region:null,url:null,campaignId:"a"}];
 const leads = [
-  {id:"a:acme",orgId:"a:acme",campaignId:"a",name:"Jane Doe",emails:[],state:"replied",
+  {id:"a:bookviral",orgId:"a:bookviral",campaignId:"a",name:"James",emails:[],state:"replied",
    strength:"stretch",followUpDate:"2020-01-01",waiting:"them",facts:{paidStatus:"paid"}},
-  {id:"a:other",orgId:"a:acme",campaignId:"a",name:"Other",emails:[],state:"passed",
+  {id:"a:other",orgId:"a:bookviral",campaignId:"a",name:"Other",emails:[],state:"passed",
    strength:"medium",followUpDate:null,waiting:"them",facts:{paidStatus:"free"}},
 ];
 
 const m = L.buildModel(campaigns, orgs, leads, {});
 assert.strictEqual(m.leadsByCampaign["a"].length, 2);
-assert.strictEqual(m.leadsByOrg["a:acme"].length, 2);
+assert.strictEqual(m.leadsByOrg["a:bookviral"].length, 2);
 assert.strictEqual(L.stateKind(campaigns[0], "published"), "won");
 assert.strictEqual(L.stateKind(campaigns[0], "nope"), "unknown");
 
@@ -46,5 +46,11 @@ const cm = [{key:"a:acme",via:"bot",ts:"2026-09-03T12:00:00Z"},{key:"a:acme",via
 assert.strictEqual(L.actedSince(cm, "a:acme", "2026-09-03T12:34:05Z"), true);
 assert.strictEqual(L.actedSince(cm, "a:acme", "2026-09-06T00:00:00Z"), false);
 assert.strictEqual(L.actedSince(cm, "a:other", "2026-09-03T12:34:05Z"), false);
+
+// Won/Drop on a campaign with no lost state: propose a new "passed" state; reuse an existing one otherwise
+const noLost = {id:"f", states:[{key:"prospect",kind:"active"},{key:"won",kind:"won"}]};
+assert.deepStrictEqual(L.closeState(noLost, "lost"), {state:{key:"passed",label:"Passed",kind:"lost"}, isNew:true});
+assert.deepStrictEqual(L.closeState(noLost, "won"), {state:{key:"won",kind:"won"}, isNew:false});
+assert.strictEqual(L.closeState({states:[{key:"passed",kind:"active"}]}, "lost").state.key, "passed-closed");
 
 console.log("ok");

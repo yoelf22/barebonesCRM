@@ -59,7 +59,18 @@
     return (comments || []).some(x => x.key === leadId && x.via !== "bot" && String(x.ts || "") > String(since || ""));
   }
 
-  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, actedSince };
+  // The state a Won/Drop click lands on: the campaign's existing won/lost state, or — when
+  // the campaign never defined one — a new state to add first, with a key not already in use.
+  function closeState(campaign, kind) {
+    const states = (campaign && campaign.states) || [];
+    const found = states.find(s => s.kind === kind);
+    if (found) return { state: found, isNew: false };
+    let key = kind === "won" ? "won" : "passed", label = kind === "won" ? "Won" : "Passed";
+    while (states.some(s => s.key === key)) key += "-closed";
+    return { state: { key, label, kind }, isNew: true };
+  }
+
+  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, actedSince, closeState };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);

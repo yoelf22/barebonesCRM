@@ -332,10 +332,8 @@ function renderPerson() {
     + '<label style="font-size:12px;color:#6b6b66">or <input type="number" id="ndays" value="10" min="1" style="width:52px"> days '
     + '<button class="btn" onclick="snooze(\''+idJs+'\',parseInt(document.getElementById(\'ndays\').value,10)||10)">set</button></label>'
     + '<span style="width:12px"></span><b>Close:</b>'
-    + (wonState ? '<button class="btn win" onclick="save(\''+idJs+'\',{state:\''+esc(wonState.key)+'\'})">✓ Won</button>'
-                : '<button class="btn win" disabled title="this campaign has no won state">✓ Won</button>')
-    + (lostState ? '<button class="btn drop" onclick="save(\''+idJs+'\',{state:\''+esc(lostState.key)+'\'})">✕ Drop</button>'
-                 : '<button class="btn drop" disabled title="this campaign has no lost state">✕ Drop</button>')
+    + '<button class="btn win" onclick="closeAs(\''+idJs+'\',\'won\')"'+(wonState?'':' title="adds a Won state to this campaign"')+'>✓ Won</button>'
+    + '<button class="btn drop" onclick="closeAs(\''+idJs+'\',\'lost\')"'+(lostState?'':' title="adds a Passed state to this campaign"')+'>✕ Drop</button>'
     + '</div>';
 
   // trail
@@ -361,7 +359,16 @@ function renderPerson() {
 }
 
 // Resolve a ⚠ flag on a note: record a dated decision in the Log, then strip the flag from the note.
+// A write does a git commit+push and can take a few seconds. Disable the detail's buttons
+// and show "saving…" the instant a button is clicked, so it never looks dead. render() at
+// the end of each handler rebuilds the detail, which re-enables everything.
+function busy() {
+  view.querySelectorAll("button").forEach(b => b.disabled = true);
+  const s = document.getElementById("saveerr"); if (s) { s.textContent = "saving…"; s.classList.remove("err"); }
+}
+
 async function resolveFlag(id, verdict) {
+  busy();
   const l = MODEL.leadsById[id]; if (!l) return;
   const flag = flagText(l.notes || ""); if (!flag) return;
   if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html to resolve."); return; }
@@ -384,6 +391,7 @@ async function addNote(id) {
   const inp = document.getElementById("noteinput");
   const text = (inp && inp.value || "").trim();
   if (!text) return;
+  busy();
   if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html to add notes."); return; }
   try {
     const r = await fetch("/comment", { method:"POST", headers:{"Content-Type":"application/json"},
@@ -400,9 +408,27 @@ function snooze(id, days) {
   save(id, { followUpDate: d.toISOString().slice(0, 10), waiting: "them" });
 }
 
+// Won / Drop. A campaign that never defined a won or lost state gets one added first
+// (POST /campaign), so the buttons always work instead of sitting disabled.
+async function closeAs(id, kind) {
+  busy();
+  const l = MODEL.leadsById[id], c = MODEL.campaignsById[l.campaignId];
+  const { state, isNew } = AppLogic.closeState(c, kind);
+  if (isNew) {
+    const err = document.getElementById("saveerr");
+    try {
+      const r = await fetch("/campaign", { method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ id: c.id, states: (c.states || []).concat([state]) }) });
+      if (!r.ok) { if(err) err.textContent = "could not add state ("+r.status+")"; return; }
+      RAW.campaigns = await r.json();
+    } catch (e) { if(err) err.textContent = "server down — start crm.py"; return; }
+  }
+  await save(id, { state: state.key });
+}
 async function save(id, delta) {
   const err = document.getElementById("saveerr");
   if (location.protocol === "file:") { if(err) err.textContent = "read-only (open via localhost)"; return; }
+  busy();
   try {
     const r = await fetch("/lead", { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify(Object.assign({ id }, delta)) });
