@@ -204,10 +204,10 @@ function renderToday() {
   rows.forEach(l => {
     const org = MODEL.orgsById[l.orgId];
     h += '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
-      + (obs[l.id]&&obs[l.id].needsAction?'<span class="badge b-me">reply — act</span>':'')
+      + (obs[l.id]&&obs[l.id].needsAction?('<span class="badge b-me">'+(String(obs[l.id].reason||"").startsWith("calendar:")?"calendar — check":"reply — act")+'</span>'):'')
       + (l.waiting==="me"?'<span class="badge b-me">you owe</span>':'')+'</div>'
       + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(campName(l.campaignId))+' · '+esc(l.state)+'</div></div>'
-      + '<div class="meta">'+(l.followUpDate?("due "+ilTime(l.followUpDate)):"")+'</div></div>';
+      + '<div class="meta">'+(l.followUpDate?((l.followUpDate < now.toISOString().slice(0,10) ? "overdue since " : "due ")+ilTime(l.followUpDate)):"")+'</div></div>';
   });
   h += '</div>';
   view.innerHTML = h;
@@ -268,7 +268,9 @@ function renderPerson() {
     badges += '<span class="badge b-mismatch">format mismatch</span>';
 
   let h = '<div style="margin-bottom:10px"><a class="link" onclick="window.__personId=null;render()">← all people</a></div>';
-  h += '<div class="card"><h3>'+esc(l.name)+' '+badges+'</h3>';
+  h += '<div class="card"><h3>'+esc(l.name)+' '+badges
+     + (l.gmailThreadId ? '<a class="btn" style="float:right" href="https://mail.google.com/mail/u/0/#all/'+esc(l.gmailThreadId)+'" target="_blank">Open Gmail thread ↗</a>' : '')
+     + '</h3>';
   h += '<div class="kv"><b>Org:</b> '+esc(org?org.name:"—")
      + (roll?(' <span class="badge '+(roll.alive?"b-active":"b-lost")+'">'+(roll.alive?"alive":"dead")+'</span> '
         + '<span class="muted">'+roll.leadCount+' lead(s): '+roll.counts.active+' active / '+roll.counts.won+' won / '+roll.counts.lost+' lost</span>'):'')+'</div>';
@@ -298,7 +300,6 @@ function renderPerson() {
       +   '<button class="btn" onclick="resolveFlag(\''+idJs+'\',\'custom\')">Resolve</button>'
       + '</div></div>';
   }
-  if (l.gmailThreadId) h += '<div class="kv"><a class="link" href="https://mail.google.com/mail/u/0/#all/'+esc(l.gmailThreadId)+'" target="_blank">open Gmail thread ↗</a></div>';
 
   // write-back controls
   const stateOpts = (c && c.states || []).map(s => '<option value="'+esc(s.key)+'"'+(s.key===l.state?" selected":"")+'>'+esc(s.label)+'</option>').join("");

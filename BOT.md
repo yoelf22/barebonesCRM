@@ -70,6 +70,8 @@ An object keyed by lead id. One entry per lead the bot has an opinion about.
 - `needsAction: true` puts the lead on Today with a "reply, act" badge. Set it when a reply
   arrives and the lead's `waiting` is `them`. A real reply beats a stale waiting-timer. Also set
   it on a bounce, because a bad address needs fixing.
+  If `reason` starts with `calendar:` the badge reads "calendar, check" instead: use that when
+  a booked date in the lead's `facts` disagrees with the calendar and needs a human look.
 - `suggestedState` is a hint. The Person view shows it only when it differs from the state you
   set. Never suggest something that contradicts a decision you made after the event.
 - Overwrite the entry each run. This file is the bot's current view, not a history.
