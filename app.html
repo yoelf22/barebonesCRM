@@ -274,23 +274,29 @@ function ilDateTime(iso, allDay){
 function meetingRow(m){
   const l = MODEL.leadsById[m.leadId];
   const gone = m.status === "missing";
-  const bad = !gone && AppLogic.meetingMismatch(l, m);
+  const moved = m.status === "moved";
+  const bad = !gone && !moved && AppLogic.meetingMismatch(l, m);
   const cid = esc(m.calId).replace(/'/g,"\\'");
-  return '<div class="row"><div><div class="main">'+esc(ilDateTime(m.start, m.allDay))
-    + (gone ? ' <span class="badge b-lost">removed from calendar</span>' : (bad ? ' <span class="badge b-me">calendar — check</span>' : ''))
+  const badge = gone  ? ' <span class="badge b-lost">removed from calendar</span>'
+              : moved ? ' <span class="badge b-me">moved</span>'
+              : bad   ? ' <span class="badge b-me">calendar — check</span>' : '';
+  const movedNote = moved ? ' <span class="muted">→ now '+esc(ilDateTime(m.newStart, m.allDay))+'</span>' : '';
+  let actions = '';
+  if (gone)       actions = '<button class="btn drop" onclick="meetingAction(\''+cid+'\',\'dismiss\')">Dismiss</button>';
+  else if (moved) actions = '<button class="btn win" onclick="meetingAction(\''+cid+'\',\'ack\')">Acknowledge</button>'
+                          + '<button class="btn drop" onclick="meetingAction(\''+cid+'\',\'dismiss\')">Dismiss</button>';
+  else if (m.joinUrl) actions = '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>';
+  return '<div class="row"><div><div class="main">'+esc(ilDateTime(m.start, m.allDay))+badge+movedNote
     + '</div><div class="meta">'
     + (l ? '<a class="link" onclick="openPerson(\''+esc(m.leadId).replace(/'/g,"\\'")+'\')">'+esc(l.name)+'</a>' : esc(m.leadId))
     + ' · '+esc(m.title)
     + (bad && l ? ' <span class="muted">(CRM: '+esc(l.state)+(l.followUpDate?(", "+ilTime(l.followUpDate)):"")+')</span>' : '')
-    + '</div></div>'
-    + (gone ? '<button class="btn drop" onclick="dismissMeeting(\''+cid+'\')">Dismiss</button>'
-            : (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : ''))
-    + '</div>';
+    + '</div></div>' + actions + '</div>';
 }
-async function dismissMeeting(calId){
+async function meetingAction(calId, action){
   if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html."); return; }
   try {
-    const r = await fetch("/meeting", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ calId }) });
+    const r = await fetch("/meeting", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ calId, action }) });
     if (r.ok) { RAW.meetings = await r.json(); render(); }
   } catch (e) { /* server down */ }
 }

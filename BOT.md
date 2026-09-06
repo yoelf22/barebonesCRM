@@ -138,13 +138,16 @@ tab (a calendar monitor) and the "Next meeting" line on each card.
 - Only events you can match to a lead (by attendee email, or the lead's name in the title). Skip
   personal/unrelated events.
 - `joinUrl`: the video link (Zoom/Meet) from the event, else the calendar event URL.
-- Rewrite this file each run to the current future events (drop events that have passed). The UI
-  flags a row "calendar — check" when the lead's `followUpDate` differs from the meeting date —
-  that is your reconcile signal and it catches reschedules.
-- If an event you recorded before is **gone from the calendar** (deleted), keep the row but set `"status": "missing"`
-  instead of dropping it silently. The UI flags it "removed from calendar"
-  with a Dismiss button, so the user acknowledges the deletion. `POST /meeting {calId}` (the one
-  UI write to this file) removes a row on Dismiss.
+- The UI flags a row "calendar — check" when the lead's `followUpDate` differs from the meeting date.
+- **Never silently remove or move a row** — the board is a safeguard against automated calendar
+  changes. Add new matched events. Drop only events that have already passed. If an existing
+  event's time CHANGED, do NOT overwrite `start`/`end`: set `"status":"moved"` and record the new
+  time in `newStart`/`newEnd`. The UI shows "moved → now <time>" with Acknowledge (adopt the new
+  time) and Dismiss.
+- If an event you recorded before is **gone from the calendar** (deleted), keep the row but set
+  `"status":"missing"` — never drop it silently. The UI flags "removed from calendar" with a
+  Dismiss button. `POST /meeting {calId, action:"dismiss"|"ack"}` (the one UI write to this file)
+  resolves a flag: dismiss removes the row, ack adopts a move.
 
 ### `inbox/unmatched.json`
 

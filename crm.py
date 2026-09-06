@@ -238,22 +238,37 @@ def persist_dismiss(links):
         return load_json_file("inbox/unmatched.json", [])
 
 
-def persist_meeting(cal_id):
-    """Remove one meeting from meetings.json — the user's ack that a calendar event is gone.
-    The bot rewrites meetings.json from the calendar each run, so a removed (deleted) event
-    stays gone. meetings.json is otherwise bot-owned; this is the one UI write to it."""
+def persist_meeting(cal_id, action):
+    """The user's response to a bot-flagged calendar change on one meeting. The bot NEVER
+    silently removes or moves a row — it flags status "missing" (deleted) or "moved"
+    (rescheduled, with newStart/newEnd); the user resolves it here.
+      action "dismiss" -> remove the row (a deleted event, or one the user no longer wants).
+      action "ack"     -> accept a move: adopt newStart/newEnd as start/end and clear the flag.
+    meetings.json is otherwise bot-owned; this is the one UI write to it."""
     with LOCK:
         git("pull", "--no-edit", "--no-rebase", "-q")
         items = load_json_file("meetings.json", [])
-        new = [m for m in items if m.get("calId") != cal_id]
-        if len(new) != len(items):
-            model.save(os.path.join(ROOT, "meetings.json"), new)
+        changed = False
+        if action == "dismiss":
+            new = [m for m in items if m.get("calId") != cal_id]
+            if len(new) != len(items):
+                items = new; changed = True
+        elif action == "ack":
+            for m in items:
+                if m.get("calId") == cal_id and m.get("status") == "moved":
+                    if m.get("newStart"): m["start"] = m["newStart"]
+                    if m.get("newEnd"):   m["end"] = m["newEnd"]
+                    for k in ("status", "newStart", "newEnd"):
+                        m.pop(k, None)
+                    changed = True
+        if changed:
+            model.save(os.path.join(ROOT, "meetings.json"), items)
             git("add", "meetings.json")
             git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
-                "commit", "-q", "-m", "meeting: dismiss %s" % cal_id)
+                "commit", "-q", "-m", "meeting: %s %s" % (action, cal_id))
             if git("push", "-q", "origin", "main").returncode != 0:
                 git("pull", "--no-edit", "--no-rebase", "-q"); git("push", "-q", "origin", "main")
-        return new
+        return items
 
 
 def persist_import(campaign_id, campaign_name, rows, default_state, dismiss_links=()):
@@ -555,11 +570,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if p == "/meeting":
             try:
                 n = int(self.headers.get("Content-Length", 0))
-                cal_id = str(json.loads(self.rfile.read(n)).get("calId", "")).strip()
-                assert cal_id
+                c = json.loads(self.rfile.read(n))
+                cal_id = str(c.get("calId", "")).strip()
+                action = c.get("action", "dismiss")
+                assert cal_id and action in ("dismiss", "ack")
             except Exception:
                 return self._json({"error": "bad request"}, 400)
-            return self._json(persist_meeting(cal_id))
+            return self._json(persist_meeting(cal_id, action))
         if p == "/ask":
             try:
                 n = int(self.headers.get("Content-Length", 0))
