@@ -229,9 +229,15 @@ function renderToday() {
   let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
     + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
   if (overdue.length) h += '<div class="card"><h3>Overdue ('+overdue.length+')</h3>' + overdue.map(row).join('') + '</div>';
-  if (upcoming.length) h += '<div class="card"><h3>Upcoming follow-ups ('+upcoming.length+')</h3>' + upcoming.map(row).join('') + '</div>';
+  // Meetings rank above async follow-ups (a mail blast waits; a live meeting does not).
   const ms = AppLogic.upcomingMeetings(RAW.meetings, now);
   if (ms.length) h += '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>' + ms.map(meetingRow).join('') + '</div>';
+  // Cap follow-ups to the next 7 days; note how many sit beyond it.
+  const cutoff = new Date(now.getTime() + 7*864e5).toISOString().slice(0,10);
+  const soon = upcoming.filter(l => l.followUpDate <= cutoff);
+  const later = upcoming.length - soon.length;
+  if (soon.length) h += '<div class="card"><h3>Upcoming follow-ups ('+soon.length+')</h3>' + soon.map(row).join('')
+    + (later ? '<div class="meta" style="padding-top:6px">+'+later+' more after '+ilTime(cutoff)+'</div>' : '') + '</div>';
   view.innerHTML = h;
 }
 
