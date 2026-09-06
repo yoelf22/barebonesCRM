@@ -212,8 +212,12 @@ function renderToday() {
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
   const today = now.toISOString().slice(0,10);
   const overdue = rows.filter(l => l.followUpDate && l.followUpDate < today);
-  const future  = rows.filter(l => l.followUpDate && l.followUpDate > today);   // non-calendar future flags / "you owe"
-  const current = rows.filter(l => !overdue.includes(l) && !future.includes(l));
+  const current = rows.filter(l => !l.followUpDate || l.followUpDate === today);
+  // every future-dated item worth seeing ahead of time — not only flagged ones (a scheduled
+  // follow-up should show before its date). Calendar cases live in the meetings frame.
+  const upcoming = RAW.leads.filter(l => !cal(l) && l.followUpDate && l.followUpDate > today
+      && (AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active" || flagged(l) || l.waiting === "me"))
+    .sort((a,b) => String(a.followUpDate).localeCompare(String(b.followUpDate)));
   const row = l => {
     const org = MODEL.orgsById[l.orgId];
     return '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
@@ -225,7 +229,7 @@ function renderToday() {
   let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
     + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
   if (overdue.length) h += '<div class="card"><h3>Overdue ('+overdue.length+')</h3>' + overdue.map(row).join('') + '</div>';
-  if (future.length)  h += '<div class="card"><h3>Future, flagged ('+future.length+')</h3>' + future.map(row).join('') + '</div>';
+  if (upcoming.length) h += '<div class="card"><h3>Upcoming follow-ups ('+upcoming.length+')</h3>' + upcoming.map(row).join('') + '</div>';
   const ms = AppLogic.upcomingMeetings(RAW.meetings, now);
   if (ms.length) h += '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>' + ms.map(meetingRow).join('') + '</div>';
   view.innerHTML = h;
