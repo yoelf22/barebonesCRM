@@ -137,6 +137,15 @@ writes to and the UI that renders it. You need leads in the CRM first, a git rem
 can push to, a mail source it can read, and a schedule. **[BOT.md](BOT.md)** has the contract,
 the full prerequisites, and a ready-to-paste prompt for a hosted agent with a Gmail connector.
 
+**6. Install the pre-commit guard.** `.git/hooks` is not versioned, so after every fresh clone
+link the hook in. It refuses to commit JSON that holds a real email address, a LinkedIn/X
+profile URL, or entries in a seed file that ships empty, because this repo is public and shares
+filenames with private forks holding real contacts.
+
+```
+ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+```
+
 ## The model
 
 Four entities, stored as normalized JSON at the repo root:

@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Block real CRM data from being committed to this PUBLIC template repo.
+
+barebonesCRM ships demo fixtures. The private forks (e.g. tangibles-outreach-crm)
+hold live outreach data in the SAME filenames, so a stray commit here publishes
+contact lists. This hook refuses that.
+
+Bypass deliberately with:  git commit --no-verify
+Install:                   ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+"""
+import json
+import re
+import subprocess
+import sys
+
+# Files that ship empty in the template and must stay empty.
+MUST_STAY_EMPTY = {
+    "comments.json", "followups.json", "inbox/unmatched.json", "meetings.json",
+    "motions.json", "observations.json", "trail.json",
+}
+
+# Demo fixtures may hold records, but only obviously fake ones.
+ALLOWED_EMAIL = re.compile(r"@(example\.(com|org|net)|localhost)$", re.I)
+REAL_EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+SOCIAL_URL = re.compile(r"https?://(www\.)?(linkedin|x|twitter)\.com/", re.I)
+
+staged = subprocess.run(
+    ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
+    capture_output=True, text=True, check=True,
+).stdout.split()
+
+problems = []
+for path in staged:
+    if not path.endswith(".json"):
+        continue
+    blob = subprocess.run(
+        ["git", "show", f":{path}"], capture_output=True, text=True
+    ).stdout
+    try:
+        data = json.loads(blob)
+    except json.JSONDecodeError:
+        problems.append(f"{path}: staged content is not valid JSON")
+        continue
+
+    if path in MUST_STAY_EMPTY and data:
+        problems.append(
+            f"{path}: ships empty in this template, staged copy has "
+            f"{len(data)} entr{'y' if len(data) == 1 else 'ies'}"
+        )
+
+    for addr in set(REAL_EMAIL.findall(blob)):
+        if not ALLOWED_EMAIL.search(addr):
+            problems.append(f"{path}: real-looking email address ({addr})")
+    if SOCIAL_URL.search(blob):
+        problems.append(f"{path}: social profile URL — looks like a real contact")
+
+if problems:
+    sys.stderr.write("\npre-commit BLOCKED — this is the PUBLIC template repo.\n\n")
+    for p in sorted(set(problems)):
+        sys.stderr.write(f"  - {p}\n")
+    sys.stderr.write(
+        "\nIf this really is demo data, use example.com addresses.\n"
+        "To override deliberately: git commit --no-verify\n\n"
+    )
+    sys.exit(1)
