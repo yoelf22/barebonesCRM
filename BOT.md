@@ -15,17 +15,17 @@ Two writers share one repo without clobbering each other because they own differ
 | Owner | Files | Who writes |
 |---|---|---|
 | **You** | `leads.json` `organizations.json` `campaigns.json` `followups.json` | the UI, or you by hand |
-| **Bot** | `observations.json` `comments.json` `inbox/unmatched.json` | the bot, append-only |
+| **Bot** | `observations.json` `comments.json` `trail.json` `inbox/unmatched.json` | the bot, append-only |
 
 The bot **never** writes a human-owned file. Not to fix a typo, not to set a state it is sure
 about. It records what happened and suggests. The UI merges bot-over-nothing and human-over-bot:
 a suggestion shows only where you have not decided that field yourself, and a decision you make
 is never undone by the next run.
 
-Every bot run is: `git pull`, read mail, write its three files, verify they parse, commit its
-three files only, `git push`. If nothing changed, no commit.
+Every bot run is: `git pull`, read mail, write its four files, verify they parse, commit its
+four files only, `git push`. If nothing changed, no commit.
 
-## The three files
+## The four files
 
 ### `comments.json`
 
@@ -77,6 +77,38 @@ An object keyed by lead id. One entry per lead the bot has an opinion about.
 - `suggestedState` is a hint. The Person view shows it only when it differs from the state you
   set. Never suggest something that contradicts a decision you made after the event.
 - Overwrite the entry each run. This file is the bot's current view, not a history.
+
+### `trail.json`
+
+An object keyed by lead id; each value is an **array** of the messages exchanged with that
+lead, in any order (the card sorts newest first). This is the comms history the Person card's
+**Trail** shows.
+
+```json
+{
+  "outreach:jane-doe": [
+    {
+      "date": "2026-08-31T12:59:22Z",
+      "direction": "sent",
+      "summary": "Sent the review copy + companion-site link.",
+      "gmailLink": "https://mail.google.com/mail/u/0/#all/18f3a2b1c4d5e6f7"
+    },
+    {
+      "date": "2026-09-04T05:40:56Z",
+      "direction": "received",
+      "summary": "They replied — asked for a review copy.",
+      "gmailLink": "https://mail.google.com/mail/u/0/#all/18f3a2b1c4d5e6f7"
+    }
+  ]
+}
+```
+
+- `direction` is `sent` or `received`. `summary` is one factual line. `gmailLink` deep-links the
+  message (or its thread).
+- Unlike `observations.json`, this file **accumulates** — it is the history, not the current view.
+  **Append** each new message; never rewrite the array. Dedup on (lead id, `gmailLink`, `date`).
+- One message can produce both a `comments.json` Log line and a `trail.json` row. The Log is the
+  running notepad; the Trail is the message-by-message record with links. Writing both is fine.
 
 ### `inbox/unmatched.json`
 
@@ -165,7 +197,7 @@ The data model is normalized JSON at the repo root.
 
 HUMAN-OWNED. You NEVER write these: leads.json, organizations.json, campaigns.json,
 followups.json.
-YOUR FILES. The only ones you may write: observations.json, comments.json,
+YOUR FILES. The only ones you may write: observations.json, comments.json, trail.json,
 inbox/unmatched.json.
 
 Your job: record what transpired on the communication channels below, and reconcile
@@ -178,7 +210,8 @@ SETUP each run:
    (lead.gmailThreadId -> lead.id), byLinkedin (lead.handles.linkedin -> lead.id),
    byName (lowercased lead.name -> lead.id). Note each lead's state, waiting, followUpDate.
 3. Load campaigns.json for each campaign's states (key -> kind active|won|lost).
-4. Load observations.json (default {}), comments.json (array), inbox/unmatched.json (array).
+4. Load observations.json (default {}), comments.json (array), trail.json (default {}),
+   inbox/unmatched.json (array).
 
 FEEDS, read via the Gmail connector:
 A. EMAIL. in:inbox newer_than:2d -from:me; a bounce search (subject:undeliverable OR
@@ -200,26 +233,30 @@ FOR EACH resolved event:
    review copy." / "Bounced: address not found." / "Out of office until 17 Aug." /
    "Emailed them." LinkedIn text: "LinkedIn: <Full Name> messaged you (open to read)."
    Dedup: skip if an entry with the same key, same link and same calendar date exists.
-2. RECONCILE into observations.json (never leads.json):
+2. APPEND to trail.json[<lead.id>] (create the array if absent):
+   {"date":"<ISO Z>","direction":"<sent|received>","summary":"<one factual line>",
+    "gmailLink":"<LINK>"}
+   This file accumulates — append, never rewrite. Dedup on (lead.id, gmailLink, date).
+3. RECONCILE into observations.json (never leads.json):
    observations.json["<lead.id>"] = {"lastInbound":"<ISO Z|null>","needsAction":<bool>,
      "suggestedState":"<state key|null>","reason":"<short>","ts":"<ISO Z>"}
    If a reply arrived on either channel AND the lead's waiting == "them", set
    needsAction:true, reason "reply arrived (<channel>)". Bounce -> needsAction:true.
    suggestedState is a suggestion only. Never suggest something that contradicts a
    decision the user made after the event.
-3. UNMATCHED: if the event resolves to no lead, append to inbox/unmatched.json:
+4. UNMATCHED: if the event resolves to no lead, append to inbox/unmatched.json:
    {"from":"<addr or profile>","name":"<name>","subject":"<subj>","date":"<ISO Z>",
     "link":"<LINK>","channel":"<email|linkedin>","guessOrg":"<org or ->"}
    Do NOT create a lead. Do NOT change any status.
 
 VERIFY before commit:
-  python3 -c "import json;[json.load(open(f)) for f in ['observations.json','comments.json','inbox/unmatched.json']]"
-  If it fails: git checkout -- observations.json comments.json inbox/unmatched.json
+  python3 -c "import json;[json.load(open(f)) for f in ['observations.json','comments.json','trail.json','inbox/unmatched.json']]"
+  If it fails: git checkout -- observations.json comments.json trail.json inbox/unmatched.json
   and do NOT commit.
 
 COMMIT, only your files, ever:
   git config user.email bot@localhost; git config user.name "CRM Bot"
-  git add observations.json comments.json inbox/unmatched.json
+  git add observations.json comments.json trail.json inbox/unmatched.json
   git commit -m "auto: comms refresh <YYYY-MM-DD>"; git push origin main
   If nothing changed, do not commit.
 
