@@ -159,9 +159,9 @@ function kindBadge(kind){ const cls={active:"b-active",won:"b-won",lost:"b-lost"
 
 async function load() {
   try {
-    const [campaigns, orgs, leads, trail, comments, observations, unmatched, meetings] = await Promise.all(
-      ["/campaigns","/organizations","/leads","/trail","/comments","/observations","/unmatched","/meetings"].map(u => fetch(u).then(r => r.json())));
-    RAW = { campaigns, orgs, leads, trail, comments, observations, unmatched, meetings };
+    const [campaigns, orgs, leads, trail, comments, observations, unmatched, meetings, motions] = await Promise.all(
+      ["/campaigns","/organizations","/leads","/trail","/comments","/observations","/unmatched","/meetings","/motions"].map(u => fetch(u).then(r => r.json())));
+    RAW = { campaigns, orgs, leads, trail, comments, observations, unmatched, meetings, motions };
     document.querySelector('[data-tab="unmatched"]').textContent = "Unmatched" + (unmatched.length ? " (" + unmatched.length + ")" : "");
     MODEL = AppLogic.buildModel(campaigns, orgs, leads, trail);
     document.getElementById("counts").textContent =
@@ -236,8 +236,27 @@ function renderToday() {
   const cutoff = new Date(now.getTime() + 7*864e5).toISOString().slice(0,10);
   const soon = upcoming.filter(l => l.followUpDate <= cutoff);
   const later = upcoming.length - soon.length;
-  if (soon.length) h += '<div class="card"><h3>Upcoming follow-ups ('+soon.length+')</h3>' + soon.map(row).join('')
-    + (later ? '<div class="meta" style="padding-top:6px">+'+later+' more after '+ilTime(cutoff)+'</div>' : '') + '</div>';
+  if (soon.length) {
+    // OOO follow-ups are one motion per day: collapse to a single line with a Draft CTA.
+    const ooo = soon.filter(l => l.state === "ooo");
+    const rest = soon.filter(l => l.state !== "ooo");
+    const byDate = {};
+    ooo.forEach(l => (byDate[l.followUpDate] = byDate[l.followUpDate] || []).push(l));
+    let body = "";
+    Object.keys(byDate).sort().forEach(d => {
+      const grp = byDate[d];
+      const queued = (RAW.motions||[]).some(m => m.status==="pending" && m.type==="ooo-followup" && m.date===d);
+      body += '<div class="row"><div><div class="main">'+grp.length+' OOO follow-ups <span class="badge b-them">motion</span></div>'
+        + '<div class="meta">'+grp.map(l=>esc(l.name)).join(", ")+'</div></div>'
+        + '<div class="meta">due '+ilTime(d)+'</div>'
+        + (queued ? '<span class="badge b-them">draft queued</span>'
+                  : '<button class="btn" onclick="queueMotion(\'ooo-followup\',\''+d+'\')">Draft follow-ups</button>')
+        + '</div>';
+    });
+    body += rest.map(row).join('');
+    h += '<div class="card"><h3>Upcoming follow-ups ('+soon.length+')</h3>' + body
+      + (later ? '<div class="meta" style="padding-top:6px">+'+later+' more after '+ilTime(cutoff)+'</div>' : '') + '</div>';
+  }
   view.innerHTML = h;
 }
 
@@ -302,6 +321,16 @@ function meetingRow(m){
     + ' · '+esc(m.title)
     + (bad && l ? ' <span class="muted">(CRM: '+esc(l.state)+(l.followUpDate?(", "+ilTime(l.followUpDate)):"")+')</span>' : '')
     + '</div></div>' + actions + '</div>';
+}
+async function queueMotion(type, date){
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/bbCRM.html."); return; }
+  const ids = RAW.leads.filter(l => l.state === "ooo" && l.followUpDate === date).map(l => l.id);
+  if (!ids.length) return;
+  if (!confirm("Queue "+ids.length+" OOO follow-up drafts for the bot to write on each thread (BCC Boardy, not sent)?")) return;
+  try {
+    const r = await fetch("/motion", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ type, date, leadIds: ids }) });
+    if (r.ok) { RAW.motions = await r.json(); render(); }
+  } catch (e) { /* server down */ }
 }
 async function meetingAction(calId, action){
   if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/bbCRM.html."); return; }

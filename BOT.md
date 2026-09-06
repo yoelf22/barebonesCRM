@@ -15,7 +15,7 @@ Two writers share one repo without clobbering each other because they own differ
 | Owner | Files | Who writes |
 |---|---|---|
 | **You** | `leads.json` `organizations.json` `campaigns.json` `followups.json` | the UI, or you by hand |
-| **Bot** | `observations.json` `comments.json` `trail.json` `meetings.json` `inbox/unmatched.json` | the bot, append-only |
+| **Bot** | `observations.json` `comments.json` `trail.json` `meetings.json` `motions.json` `inbox/unmatched.json` | the bot, append-only |
 
 The bot **never** writes a human-owned file. Not to fix a typo, not to set a state it is sure
 about. It records what happened and suggests. The UI merges bot-over-nothing and human-over-bot:
@@ -148,6 +148,17 @@ tab (a calendar monitor) and the "Next meeting" line on each card.
   `"status":"missing"` — never drop it silently. The UI flags "removed from calendar" with a
   Dismiss button. `POST /meeting {calId, action:"dismiss"|"ack"}` (the one UI write to this file)
   resolves a flag: dismiss removes the row, ack adopts a move.
+
+### `motions.json`
+
+A queue of batch actions the board asks you to carry out (the board has no Gmail). Each entry:
+`{id, type, date, leadIds, status, requestedAt}`. You process `status:"pending"` entries, then
+set `status:"done"`.
+
+- `type:"ooo-followup"` — for each lead id, draft a short follow-up on the lead's `gmailThreadId`
+  (a reply draft: "circling back now that you're likely back at your desk…"), **BCC
+  boardy@boardy.ai**. **Draft only, never send.** Add a `comments.json` line per lead.
+- Mark the motion `status:"done"` with a count when finished. Never delete a lead or send mail.
 
 ### `inbox/unmatched.json`
 

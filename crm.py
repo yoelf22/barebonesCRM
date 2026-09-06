@@ -271,6 +271,26 @@ def persist_meeting(cal_id, action):
         return items
 
 
+def persist_motion(motion):
+    """Queue a batch 'motion' the board asks the bot to carry out (e.g. draft OOO follow-ups on
+    each lead's thread). The board has no Gmail; the bot consumes motions.json on its run, drafts
+    (never sends, BCC Boardy), and marks the motion done. Bot-owned file; this is the UI's request."""
+    import uuid
+    with LOCK:
+        git("pull", "--no-edit", "--no-rebase", "-q")
+        items = load_json_file("motions.json", [])
+        motion = {"id": uuid.uuid4().hex[:8], "status": "pending",
+                  "requestedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), **motion}
+        items.append(motion)
+        model.save(os.path.join(ROOT, "motions.json"), items)
+        git("add", "motions.json")
+        git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
+            "commit", "-q", "-m", "motion: %s (%s)" % (motion.get("type"), motion.get("date","")))
+        if git("push", "-q", "origin", "main").returncode != 0:
+            git("pull", "--no-edit", "--no-rebase", "-q"); git("push", "-q", "origin", "main")
+        return items
+
+
 def persist_import(campaign_id, campaign_name, rows, default_state, dismiss_links=()):
     """Create leads (and their orgs) from imported CSV rows into a campaign, creating
     the campaign itself with default states if it doesn't exist yet (onboarding).
@@ -517,6 +537,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json(load_json_file("trail.json", {}))
         if p == "/meetings":
             return self._json(load_json_file("meetings.json", []))
+        if p == "/motions":
+            return self._json(load_json_file("motions.json", []))
         if p == "/observations":
             return self._json(load_json_file("observations.json", {}))
         if p == "/unmatched":
@@ -579,6 +601,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 return self._json({"error": "bad request"}, 400)
             return self._json(persist_meeting(cal_id, action))
+        if p == "/motion":
+            try:
+                c = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+                mtype = str(c.get("type", "")).strip()
+                ids = c.get("leadIds") or []
+                assert mtype and isinstance(ids, list) and ids
+            except Exception:
+                return self._json({"error": "bad request"}, 400)
+            return self._json(persist_motion({"type": mtype, "date": c.get("date"), "leadIds": [str(x) for x in ids]}))
         if p == "/ask":
             try:
                 n = int(self.headers.get("Content-Length", 0))
