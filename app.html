@@ -227,6 +227,8 @@ function renderToday() {
     + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
   if (overdue.length) h += '<div class="card"><h3>Overdue ('+overdue.length+')</h3>' + overdue.map(row).join('') + '</div>';
   if (future.length)  h += '<div class="card"><h3>Future, flagged ('+future.length+')</h3>' + future.map(row).join('') + '</div>';
+  const ms = AppLogic.upcomingMeetings(RAW.meetings, now);
+  if (ms.length) h += '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>' + ms.map(meetingRow).join('') + '</div>';
   view.innerHTML = h;
 }
 
@@ -270,23 +272,23 @@ function ilDateTime(iso, allDay){
   if (allDay) return d.toLocaleDateString("en-GB",{timeZone:"Asia/Jerusalem",day:"numeric",month:"short",year:"numeric"})+" (all day)";
   return d.toLocaleString("en-GB",{timeZone:"Asia/Jerusalem",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
 }
+function meetingRow(m){
+  const l = MODEL.leadsById[m.leadId];
+  const bad = AppLogic.meetingMismatch(l, m);
+  return '<div class="row"><div><div class="main">'+esc(ilDateTime(m.start, m.allDay))
+    + (bad ? ' <span class="badge b-me">calendar — check</span>' : '')
+    + '</div><div class="meta">'
+    + (l ? '<a class="link" onclick="openPerson(\''+esc(m.leadId).replace(/'/g,"\\'")+'\')">'+esc(l.name)+'</a>' : esc(m.leadId))
+    + ' · '+esc(m.title)
+    + (bad && l ? ' <span class="muted">(CRM: '+esc(l.state)+(l.followUpDate?(", "+ilTime(l.followUpDate)):"")+')</span>' : '')
+    + '</div></div>'
+    + (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : '')
+    + '</div>';
+}
 function renderUpcoming(){
   const ms = AppLogic.upcomingMeetings(RAW.meetings, new Date());
   let h = '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>';
-  if (!ms.length) h += '<p class="muted">No upcoming meetings on the calendar.</p>';
-  ms.forEach(m => {
-    const l = MODEL.leadsById[m.leadId], c = l && MODEL.campaignsById[l.campaignId];
-    const bad = AppLogic.meetingMismatch(l, m);
-    h += '<div class="row"><div><div class="main">'+esc(ilDateTime(m.start, m.allDay))
-      + (bad ? ' <span class="badge b-me">calendar — check</span>' : '')
-      + '</div><div class="meta">'
-      + (l ? '<a class="link" onclick="openPerson(\''+esc(m.leadId).replace(/'/g,"\\'")+'\')">'+esc(l.name)+'</a>' : esc(m.leadId))
-      + ' · '+esc(m.title)
-      + (bad && l ? ' <span class="muted">(CRM: '+esc(l.state)+(l.followUpDate?(", "+ilTime(l.followUpDate)):"")+')</span>' : '')
-      + '</div></div>'
-      + (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : '')
-      + '</div>';
-  });
+  h += ms.length ? ms.map(meetingRow).join('') : '<p class="muted">No upcoming meetings on the calendar.</p>';
   h += '</div>';
   view.innerHTML = h;
 }
