@@ -84,7 +84,6 @@ a.link:hover { text-decoration:underline; }
     <button class="tab" data-tab="people">People</button>
     <button class="tab" data-tab="import">Import CSV</button>
     <button class="tab" data-tab="unmatched">Unmatched</button>
-    <button class="tab" data-tab="upcoming">Upcoming</button>
     <button class="tab" data-tab="ask">Ask</button>
   </div>
   <div id="view"></div>
@@ -186,7 +185,6 @@ function render() {
   else if (window.__tab === "campaigns") renderCampaigns();
   else if (window.__tab === "import") renderImport();
   else if (window.__tab === "unmatched") renderUnmatched();
-  else if (window.__tab === "upcoming") renderUpcoming();
   else if (window.__tab === "ask") renderAsk();
   else renderPerson();
 }
@@ -207,13 +205,14 @@ function renderToday() {
   const now = new Date();
   const obs = RAW.observations || {};
   const rows = RAW.leads.filter(l => {
+    if (cal(l)) return false;   // calendar cases live in the Upcoming meetings frame, not here
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
     return flagged(l) || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
   const today = now.toISOString().slice(0,10);
   const overdue = rows.filter(l => l.followUpDate && l.followUpDate < today);
-  const future  = rows.filter(l => l.followUpDate && l.followUpDate > today);   // surfaced by a bot flag or "you owe"
+  const future  = rows.filter(l => l.followUpDate && l.followUpDate > today);   // non-calendar future flags / "you owe"
   const current = rows.filter(l => !overdue.includes(l) && !future.includes(l));
   const row = l => {
     const org = MODEL.orgsById[l.orgId];
@@ -284,13 +283,6 @@ function meetingRow(m){
     + '</div></div>'
     + (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : '')
     + '</div>';
-}
-function renderUpcoming(){
-  const ms = AppLogic.upcomingMeetings(RAW.meetings, new Date());
-  let h = '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>';
-  h += ms.length ? ms.map(meetingRow).join('') : '<p class="muted">No upcoming meetings on the calendar.</p>';
-  h += '</div>';
-  view.innerHTML = h;
 }
 function renderPerson() {
   if (!window.__personId) {
