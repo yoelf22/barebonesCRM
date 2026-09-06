@@ -143,7 +143,7 @@ def persist_followup(key, followUpDate, author, via, closed=False, reopen=False)
 
 ENTITY = {
   "/lead":     ("leads.json",         {"state","followUpDate","waiting","notes",
-                                        "facts","strength","emails","handles","role"}),
+                                        "facts","strength","emails","handles","role","referredBy"}),
   "/org":      ("organizations.json", {"name","sector","region","url","campaignId"}),
   "/campaign": ("campaigns.json",     {"name","icp","goal","states","window",
                                         "targetType","notes"}),

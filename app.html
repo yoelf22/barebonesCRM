@@ -307,6 +307,8 @@ function renderPerson() {
   Object.keys(HANDLES).forEach(k => { const u = safeUrl(hs[k]); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">'+HANDLES[k]+' ↗</a>'); });
   { const u = org && safeUrl(org.url); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">Org site ↗</a>'); }
   if (links.length) h += '<div class="kv"><b>Links:</b> '+links.join(' · ')+'</div>';
+  if (l.referredBy) { const rb = MODEL.leadsById[l.referredBy];
+    h += '<div class="kv"><b>Referred by:</b> '+(rb?'<a class="link" onclick="openPerson(\''+esc(l.referredBy).replace(/'/g,"\\'")+'\')">'+esc(rb.name)+'</a>':esc(l.referredBy))+'</div>'; }
   if (fa.paidStatus && fa.paidStatus!=="free") h += '<div class="kv"><b>Paid:</b> '+esc(fa.paidStatus)+(fa.amount?(" ("+esc(fa.amount)+")"):"")+'</div>';
   if (fa.formatRequested || fa.formatSent) h += '<div class="kv"><b>Format:</b> asked '+esc(fa.formatRequested||"?")+' / sent '+esc(fa.formatSent||"?")+'</div>';
   const flag = flagText(l.notes);

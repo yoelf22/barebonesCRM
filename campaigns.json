@@ -6,11 +6,36 @@
   "icp": "Describe who this campaign targets.",
   "goal": "What you want from every individual it reaches.",
   "states": [
-   {"key": "prospect",  "label": "Prospect",  "kind": "active"},
-   {"key": "contacted", "label": "Contacted", "kind": "active"},
-   {"key": "replied",   "label": "Replied",   "kind": "active"},
-   {"key": "won",       "label": "Won",        "kind": "won"},
-   {"key": "lost",      "label": "Lost",       "kind": "lost"}
+   {
+    "key": "prospect",
+    "label": "Prospect",
+    "kind": "active"
+   },
+   {
+    "key": "contacted",
+    "label": "Contacted",
+    "kind": "active"
+   },
+   {
+    "key": "replied",
+    "label": "Replied",
+    "kind": "active"
+   },
+   {
+    "key": "won",
+    "label": "Won",
+    "kind": "won"
+   },
+   {
+    "key": "lost",
+    "label": "Lost",
+    "kind": "lost"
+   },
+   {
+    "key": "referred",
+    "label": "Referred",
+    "kind": "won"
+   }
   ],
   "window": null,
   "notes": ""

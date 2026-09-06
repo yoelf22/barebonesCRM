@@ -63,7 +63,10 @@
   // the campaign never defined one — a new state to add first, with a key not already in use.
   function closeState(campaign, kind) {
     const states = (campaign && campaign.states) || [];
-    const found = states.find(s => s.kind === kind);
+    // prefer the canonical key so adding a second won-state ("referred") never hijacks the Won button
+    const prefer = kind === "won" ? ["won"] : ["lost", "passed"];
+    const found = prefer.map(k => states.find(s => s.kind === kind && s.key === k)).find(Boolean)
+               || states.find(s => s.kind === kind);
     if (found) return { state: found, isNew: false };
     let key = kind === "won" ? "won" : "passed", label = kind === "won" ? "Won" : "Passed";
     while (states.some(s => s.key === key)) key += "-closed";

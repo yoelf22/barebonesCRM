@@ -52,5 +52,9 @@ const noLost = {id:"f", states:[{key:"prospect",kind:"active"},{key:"won",kind:"
 assert.deepStrictEqual(L.closeState(noLost, "lost"), {state:{key:"passed",label:"Passed",kind:"lost"}, isNew:true});
 assert.deepStrictEqual(L.closeState(noLost, "won"), {state:{key:"won",kind:"won"}, isNew:false});
 assert.strictEqual(L.closeState({states:[{key:"passed",kind:"active"}]}, "lost").state.key, "passed-closed");
+// with a second won-state ("referred"), the Won button still resolves to the canonical "won"
+const twoWon = {states:[{key:"won",kind:"won"},{key:"referred",kind:"won"},{key:"passed",kind:"lost"}]};
+assert.strictEqual(L.closeState(twoWon, "won").state.key, "won");
+assert.strictEqual(L.closeState(twoWon, "lost").state.key, "passed");
 
 console.log("ok");

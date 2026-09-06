@@ -76,6 +76,13 @@ An object keyed by lead id. One entry per lead the bot has an opinion about.
   than `lastInbound` counts as acting. The bot does not need to clear the flag itself.
 - `suggestedState` is a hint. The Person view shows it only when it differs from the state you
   set. Never suggest something that contradicts a decision you made after the event.
+- **Referral rule.** A lead may carry `referredBy` (the lead id of whoever introduced them) —
+  a human-owned field on `leads.json`. When a lead with `referredBy` set **acknowledges** (a
+  reply arrives, or its state moves past prospect), the connector's job is done: set the
+  referrer's observation to `{"needsAction": false, "suggestedState": "referred", "reason":
+  "referral landed — <name> acknowledged; safe to close"}`. Do **not** set needsAction on the
+  referrer (that would nag). The `referred` state (kind `won`) is a positive close the user
+  applies with one click; the bot only suggests it, never writes `leads.json`.
 - Overwrite the entry each run. This file is the bot's current view, not a history.
 
 ### `trail.json`
