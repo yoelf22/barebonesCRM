@@ -141,6 +141,10 @@ tab (a calendar monitor) and the "Next meeting" line on each card.
 - Rewrite this file each run to the current future events (drop events that have passed). The UI
   flags a row "calendar — check" when the lead's `followUpDate` differs from the meeting date —
   that is your reconcile signal and it catches reschedules.
+- If an event you recorded before is **gone from the calendar** (deleted), keep the row but set `"status": "missing"`
+  instead of dropping it silently. The UI flags it "removed from calendar"
+  with a Dismiss button, so the user acknowledges the deletion. `POST /meeting {calId}` (the one
+  UI write to this file) removes a row on Dismiss.
 
 ### `inbox/unmatched.json`
 

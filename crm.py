@@ -238,6 +238,24 @@ def persist_dismiss(links):
         return load_json_file("inbox/unmatched.json", [])
 
 
+def persist_meeting(cal_id):
+    """Remove one meeting from meetings.json — the user's ack that a calendar event is gone.
+    The bot rewrites meetings.json from the calendar each run, so a removed (deleted) event
+    stays gone. meetings.json is otherwise bot-owned; this is the one UI write to it."""
+    with LOCK:
+        git("pull", "--no-edit", "--no-rebase", "-q")
+        items = load_json_file("meetings.json", [])
+        new = [m for m in items if m.get("calId") != cal_id]
+        if len(new) != len(items):
+            model.save(os.path.join(ROOT, "meetings.json"), new)
+            git("add", "meetings.json")
+            git("-c", "user.name=Barebones CRM", "-c", "user.email=crm@localhost",
+                "commit", "-q", "-m", "meeting: dismiss %s" % cal_id)
+            if git("push", "-q", "origin", "main").returncode != 0:
+                git("pull", "--no-edit", "--no-rebase", "-q"); git("push", "-q", "origin", "main")
+        return new
+
+
 def persist_import(campaign_id, campaign_name, rows, default_state, dismiss_links=()):
     """Create leads (and their orgs) from imported CSV rows into a campaign, creating
     the campaign itself with default states if it doesn't exist yet (onboarding).
@@ -534,6 +552,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception:
                 return self._json({"error": "bad request"}, 400)
             return self._json(persist_dismiss([str(x) for x in links]))
+        if p == "/meeting":
+            try:
+                n = int(self.headers.get("Content-Length", 0))
+                cal_id = str(json.loads(self.rfile.read(n)).get("calId", "")).strip()
+                assert cal_id
+            except Exception:
+                return self._json({"error": "bad request"}, 400)
+            return self._json(persist_meeting(cal_id))
         if p == "/ask":
             try:
                 n = int(self.headers.get("Content-Length", 0))

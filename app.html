@@ -84,7 +84,7 @@ a.link:hover { text-decoration:underline; }
     <button class="tab" data-tab="people">People</button>
     <button class="tab" data-tab="import">Import CSV</button>
     <button class="tab" data-tab="unmatched">Unmatched</button>
-    <button class="tab" data-tab="ask">Ask</button>
+    <button class="tab" data-tab="ask">Chat</button>
   </div>
   <div id="view"></div>
 </div>
@@ -273,16 +273,26 @@ function ilDateTime(iso, allDay){
 }
 function meetingRow(m){
   const l = MODEL.leadsById[m.leadId];
-  const bad = AppLogic.meetingMismatch(l, m);
+  const gone = m.status === "missing";
+  const bad = !gone && AppLogic.meetingMismatch(l, m);
+  const cid = esc(m.calId).replace(/'/g,"\\'");
   return '<div class="row"><div><div class="main">'+esc(ilDateTime(m.start, m.allDay))
-    + (bad ? ' <span class="badge b-me">calendar — check</span>' : '')
+    + (gone ? ' <span class="badge b-lost">removed from calendar</span>' : (bad ? ' <span class="badge b-me">calendar — check</span>' : ''))
     + '</div><div class="meta">'
     + (l ? '<a class="link" onclick="openPerson(\''+esc(m.leadId).replace(/'/g,"\\'")+'\')">'+esc(l.name)+'</a>' : esc(m.leadId))
     + ' · '+esc(m.title)
     + (bad && l ? ' <span class="muted">(CRM: '+esc(l.state)+(l.followUpDate?(", "+ilTime(l.followUpDate)):"")+')</span>' : '')
     + '</div></div>'
-    + (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : '')
+    + (gone ? '<button class="btn drop" onclick="dismissMeeting(\''+cid+'\')">Dismiss</button>'
+            : (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : ''))
     + '</div>';
+}
+async function dismissMeeting(calId){
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html."); return; }
+  try {
+    const r = await fetch("/meeting", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ calId }) });
+    if (r.ok) { RAW.meetings = await r.json(); render(); }
+  } catch (e) { /* server down */ }
 }
 function renderPerson() {
   if (!window.__personId) {
