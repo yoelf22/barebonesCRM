@@ -2,7 +2,7 @@
 """
 Barebones CRM server.
 
-Serves the board at http://localhost:8787/app.html and persists every edit to the
+Serves the board at http://localhost:8787/bbCRM.html and persists every edit to the
 JSON files in this folder, committing each write to git.
 
 Reads:
@@ -501,6 +501,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         p = urlparse(self.path).path
+        if p in ("/", "/app.html"):     # legacy path + bare root -> the board
+            self.send_response(302); self.send_header("Location", "/bbCRM.html"); self.end_headers(); return
         if p == "/comments":
             return self._json(load())
         if p == "/followups":
@@ -645,7 +647,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     os.chdir(ROOT)
-    print("Barebones CRM: http://localhost:%d/app.html" % PORT)
+    print("Barebones CRM: http://localhost:%d/bbCRM.html" % PORT)
     print("Comments save to comments.json and auto-commit+push. Ctrl-C to stop.")
     try:
         http.server.ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

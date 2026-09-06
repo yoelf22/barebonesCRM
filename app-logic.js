@@ -1,4 +1,4 @@
-// app-logic.js — pure, DOM-free helpers for app.html. Loaded by the page (<script>)
+// app-logic.js — pure, DOM-free helpers for bbCRM.html. Loaded by the page (<script>)
 // and by Node tests (require). No fetch, no DOM, no globals beyond the export shim.
 (function (root) {
   function buildModel(campaigns, orgs, leads, trail) {

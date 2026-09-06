@@ -167,7 +167,7 @@ async function load() {
     document.getElementById("counts").textContent =
       leads.length + " leads · " + orgs.length + " orgs · " + campaigns.length + " campaigns";
     document.getElementById("banner").innerHTML =
-      (location.protocol === "file:") ? '<div class="banner">Opened as a file — read-only. Run <b>python3 crm.py</b> and open http://localhost:8787/app.html to edit.</div>' : "";
+      (location.protocol === "file:") ? '<div class="banner">Opened as a file — read-only. Run <b>python3 crm.py</b> and open http://localhost:8787/bbCRM.html to edit.</div>' : "";
     render();
   } catch (e) {
     document.getElementById("banner").innerHTML =
@@ -294,7 +294,7 @@ function meetingRow(m){
     + '</div></div>' + actions + '</div>';
 }
 async function meetingAction(calId, action){
-  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html."); return; }
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/bbCRM.html."); return; }
   try {
     const r = await fetch("/meeting", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ calId, action }) });
     if (r.ok) { RAW.meetings = await r.json(); render(); }
@@ -438,7 +438,7 @@ async function resolveFlag(id, verdict) {
   busy();
   const l = MODEL.leadsById[id]; if (!l) return;
   const flag = flagText(l.notes || ""); if (!flag) return;
-  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html to resolve."); return; }
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/bbCRM.html to resolve."); return; }
   const custom = (document.getElementById("resolveinput") || {}).value;
   const text = (custom && custom.trim())
     ? "Flag resolved: " + custom.trim() + "  [" + flag + "]"
@@ -459,7 +459,7 @@ async function addNote(id) {
   const text = (inp && inp.value || "").trim();
   if (!text) return;
   busy();
-  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/app.html to add notes."); return; }
+  if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/bbCRM.html to add notes."); return; }
   try {
     const r = await fetch("/comment", { method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ key: id, text }) });
@@ -547,7 +547,7 @@ function drawMapping(){
 }
 async function doImport(){
   const csv = window.__csv || {}, res = document.getElementById("impresult");
-  if (location.protocol === "file:"){ res.innerHTML = '<span class="err">Read-only — open via http://localhost:8787/app.html.</span>'; return; }
+  if (location.protocol === "file:"){ res.innerHTML = '<span class="err">Read-only — open via http://localhost:8787/bbCRM.html.</span>'; return; }
   let cid = document.getElementById("impcamp").value, cname = "";
   if (cid === "__new"){
     cname = (document.getElementById("impnewname").value||"").trim();

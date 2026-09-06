@@ -49,7 +49,7 @@ There is no database, no build step, no framework, and no dependency to install.
 - **The server is one script**, `crm.py`, using Python's standard library only. It serves
   the page and accepts small delta writes. Each write is applied to fresh state and committed,
   so git history is your audit trail and your undo.
-- **The page is one file**, `app.html`, in vanilla JavaScript. Three views (Today, Campaigns,
+- **The page is one file**, `bbCRM.html`, in vanilla JavaScript. Three views (Today, Campaigns,
   People) plus a CSV importer and a plain-English Ask tab. Today splits into Today / Overdue /
   Future-flagged; a person card shows and edits role and LinkedIn/X/website links. No bundler.
 - **The rules live in one module**, `model.py`. Entity shapes, validation, and how a
@@ -106,7 +106,7 @@ silently, because you cannot push here.
 python3 crm.py
 ```
 
-Open **http://localhost:8787/app.html**. Set `CRM_PORT` to run a second copy on another port. Running via `crm.py` rather than opening the file
+Open **http://localhost:8787/bbCRM.html**. Set `CRM_PORT` to run a second copy on another port. Running via `crm.py` rather than opening the file
 directly is what makes writes work: edits POST to the server, which applies the change and
 commits it. Opened as a bare `file://`, the page is read-only.
 
@@ -187,7 +187,7 @@ Writes are **deltas**, never the whole store, so concurrent edits don't overwrit
 | `crm.py` | stdlib HTTP server + delta-write endpoints (git commit on write) |
 | `model.py` | entity schema, validators, `apply_delta` |
 | `app-logic.js` | pure join / roll-up / funnel / due helpers (browser + Node) |
-| `app.html` | the board: Today, Campaigns, People, Import CSV, Unmatched, Ask + write-back controls |
+| `bbCRM.html` | the board: Today, Campaigns, People, Import CSV, Unmatched, Ask + write-back controls |
 | `campaigns/organizations/leads.json` | the data (ships with one sample of each) |
 | `test_*.py`, `test_app_logic.js` | plain-assert tests (`python3 test_x.py`, `node test_app_logic.js`) |
 | `BOT.md` | the contract for an optional mail-reading bot, plus a paste-ready example |
@@ -249,7 +249,7 @@ This is a starting point, not a product. The logic is small and readable on purp
 fork the repo and change it to fit your workflow:
 
 - **`model.py`** — the entity rules (fields, states, validation). Widen or tighten them here.
-- **`app.html`** — the views and controls (one file, vanilla JS, no build step).
+- **`bbCRM.html`** — the views and controls (one file, vanilla JS, no build step).
 - **`crm.py`** — the endpoints (add your own; each write is a git commit).
 
 If you're not sure how a piece works, run it and ask the **Ask** tab, or fork and experiment —
