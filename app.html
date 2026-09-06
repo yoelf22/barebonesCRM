@@ -333,6 +333,7 @@ function renderPerson() {
     + '<label>Waiting <select onchange="save(\''+idJs+'\',{waiting:this.value})"><option value="them"'+(l.waiting==="them"?" selected":"")+'>them</option><option value="me"'+(l.waiting==="me"?" selected":"")+'>me</option></select></label>'
     + '<span class="err" id="saveerr"></span></div>';
   h += '<div class="controls">'
+    + '<label>Email <input value="'+esc((l.emails||[]).join(", "))+'" placeholder="a@x.com, b@y.com" onchange="save(\''+idJs+'\',{emails:this.value.split(\',\').map(function(x){return x.trim()}).filter(Boolean)})"></label>'
     + '<label>Role <input value="'+esc(l.role||"")+'" placeholder="title / who they are" onchange="save(\''+idJs+'\',{role:this.value.trim()||null})"></label>'
     + '<label>LinkedIn <input value="'+esc((l.handles||{}).linkedin||"")+'" placeholder="https://linkedin.com/in/…" onchange="saveHandle(\''+idJs+'\',\'linkedin\',this.value)"></label>'
     + '<label>X <input value="'+esc((l.handles||{}).x||"")+'" placeholder="https://x.com/…" onchange="saveHandle(\''+idJs+'\',\'x\',this.value)"></label>'
