@@ -57,4 +57,9 @@ const twoWon = {states:[{key:"won",kind:"won"},{key:"referred",kind:"won"},{key:
 assert.strictEqual(L.closeState(twoWon, "won").state.key, "won");
 assert.strictEqual(L.closeState(twoWon, "lost").state.key, "passed");
 
+// meetingMismatch: true only when followUpDate != meeting date (catches reschedules / missing date)
+assert.strictEqual(L.meetingMismatch({followUpDate:"2026-09-23"},{start:"2026-09-23T10:30:00+03:00"}), false);
+assert.strictEqual(L.meetingMismatch({followUpDate:"2026-09-20"},{start:"2026-09-23T10:30:00+03:00"}), true);
+assert.strictEqual(L.meetingMismatch({followUpDate:null},{start:"2027-01-27T09:00:00+02:00"}), true);
+
 console.log("ok");

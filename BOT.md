@@ -15,17 +15,17 @@ Two writers share one repo without clobbering each other because they own differ
 | Owner | Files | Who writes |
 |---|---|---|
 | **You** | `leads.json` `organizations.json` `campaigns.json` `followups.json` | the UI, or you by hand |
-| **Bot** | `observations.json` `comments.json` `trail.json` `inbox/unmatched.json` | the bot, append-only |
+| **Bot** | `observations.json` `comments.json` `trail.json` `meetings.json` `inbox/unmatched.json` | the bot, append-only |
 
 The bot **never** writes a human-owned file. Not to fix a typo, not to set a state it is sure
 about. It records what happened and suggests. The UI merges bot-over-nothing and human-over-bot:
 a suggestion shows only where you have not decided that field yourself, and a decision you make
 is never undone by the next run.
 
-Every bot run is: `git pull`, read mail, write its four files, verify they parse, commit its
-four files only, `git push`. If nothing changed, no commit.
+Every bot run is: `git pull`, read mail, write its five files, verify they parse, commit its
+five files only, `git push`. If nothing changed, no commit.
 
-## The four files
+## The five files
 
 ### `comments.json`
 
@@ -117,6 +117,31 @@ lead, in any order (the card sorts newest first). This is the comms history the 
 - One message can produce both a `comments.json` Log line and a `trail.json` row. The Log is the
   running notepad; the Trail is the message-by-message record with links. Writing both is fine.
 
+### `meetings.json`
+
+An **array** of upcoming calendar events matched to a lead. It powers the board's **Upcoming**
+tab (a calendar monitor) and the "Next meeting" line on each card.
+
+```json
+[{
+  "leadId": "outreach:jane-doe",
+  "calId": "abc123",
+  "start": "2026-09-23T10:30:00+03:00",
+  "end": "2026-09-23T11:30:00+03:00",
+  "title": "Jane <> You",
+  "joinUrl": "https://us02web.zoom.us/j/8238...",
+  "location": "",
+  "allDay": false
+}]
+```
+
+- Only events you can match to a lead (by attendee email, or the lead's name in the title). Skip
+  personal/unrelated events.
+- `joinUrl`: the video link (Zoom/Meet) from the event, else the calendar event URL.
+- Rewrite this file each run to the current future events (drop events that have passed). The UI
+  flags a row "calendar — check" when the lead's `followUpDate` differs from the meeting date —
+  that is your reconcile signal and it catches reschedules.
+
 ### `inbox/unmatched.json`
 
 An array of inbound messages the bot could not match to any lead.
@@ -205,7 +230,7 @@ The data model is normalized JSON at the repo root.
 HUMAN-OWNED. You NEVER write these: leads.json, organizations.json, campaigns.json,
 followups.json.
 YOUR FILES. The only ones you may write: observations.json, comments.json, trail.json,
-inbox/unmatched.json.
+meetings.json, inbox/unmatched.json.
 
 Your job: record what transpired on the communication channels below, and reconcile
 status the user has NOT decided, never overriding a field the user set. You are a cleanup
@@ -218,7 +243,7 @@ SETUP each run:
    byName (lowercased lead.name -> lead.id). Note each lead's state, waiting, followUpDate.
 3. Load campaigns.json for each campaign's states (key -> kind active|won|lost).
 4. Load observations.json (default {}), comments.json (array), trail.json (default {}),
-   inbox/unmatched.json (array).
+   meetings.json (array), inbox/unmatched.json (array).
 
 FEEDS, read via the Gmail connector:
 A. EMAIL. in:inbox newer_than:2d -from:me; a bounce search (subject:undeliverable OR
@@ -231,6 +256,11 @@ B. LINKEDIN (optional). from:messaging-digest-noreply@linkedin.com newer_than:2d
    body gives the sender's full name, profile URL and a "View message" link, with no
    message text. Resolve by byLinkedin(profile URL) then byName(full name).
    channel="linkedin". LINK = the View-message URL. Inbound only.
+
+FEED C — CALENDAR (optional, if you can read the user's calendar):
+   List upcoming events. For each event you can match to a lead (attendee email in the lead's
+   emails, or the lead's name in the title), record it in meetings.json (see its section above).
+   Rewrite meetings.json to the current future, lead-matched events each run.
 
 FOR EACH resolved event:
 1. APPEND to comments.json:
@@ -257,13 +287,13 @@ FOR EACH resolved event:
    Do NOT create a lead. Do NOT change any status.
 
 VERIFY before commit:
-  python3 -c "import json;[json.load(open(f)) for f in ['observations.json','comments.json','trail.json','inbox/unmatched.json']]"
-  If it fails: git checkout -- observations.json comments.json trail.json inbox/unmatched.json
+  python3 -c "import json;[json.load(open(f)) for f in ['observations.json','comments.json','trail.json','meetings.json','inbox/unmatched.json']]"
+  If it fails: git checkout -- observations.json comments.json trail.json meetings.json inbox/unmatched.json
   and do NOT commit.
 
 COMMIT, only your files, ever:
   git config user.email bot@localhost; git config user.name "CRM Bot"
-  git add observations.json comments.json trail.json inbox/unmatched.json
+  git add observations.json comments.json trail.json meetings.json inbox/unmatched.json
   git commit -m "auto: comms refresh <YYYY-MM-DD>"; git push origin main
   If nothing changed, do not commit.
 

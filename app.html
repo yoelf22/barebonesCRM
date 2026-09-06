@@ -84,6 +84,7 @@ a.link:hover { text-decoration:underline; }
     <button class="tab" data-tab="people">People</button>
     <button class="tab" data-tab="import">Import CSV</button>
     <button class="tab" data-tab="unmatched">Unmatched</button>
+    <button class="tab" data-tab="upcoming">Upcoming</button>
     <button class="tab" data-tab="ask">Ask</button>
   </div>
   <div id="view"></div>
@@ -159,9 +160,9 @@ function kindBadge(kind){ const cls={active:"b-active",won:"b-won",lost:"b-lost"
 
 async function load() {
   try {
-    const [campaigns, orgs, leads, trail, comments, observations, unmatched] = await Promise.all(
-      ["/campaigns","/organizations","/leads","/trail","/comments","/observations","/unmatched"].map(u => fetch(u).then(r => r.json())));
-    RAW = { campaigns, orgs, leads, trail, comments, observations, unmatched };
+    const [campaigns, orgs, leads, trail, comments, observations, unmatched, meetings] = await Promise.all(
+      ["/campaigns","/organizations","/leads","/trail","/comments","/observations","/unmatched","/meetings"].map(u => fetch(u).then(r => r.json())));
+    RAW = { campaigns, orgs, leads, trail, comments, observations, unmatched, meetings };
     document.querySelector('[data-tab="unmatched"]').textContent = "Unmatched" + (unmatched.length ? " (" + unmatched.length + ")" : "");
     MODEL = AppLogic.buildModel(campaigns, orgs, leads, trail);
     document.getElementById("counts").textContent =
@@ -185,6 +186,7 @@ function render() {
   else if (window.__tab === "campaigns") renderCampaigns();
   else if (window.__tab === "import") renderImport();
   else if (window.__tab === "unmatched") renderUnmatched();
+  else if (window.__tab === "upcoming") renderUpcoming();
   else if (window.__tab === "ask") renderAsk();
   else renderPerson();
 }
@@ -262,6 +264,32 @@ function renderCampaigns() {
 }
 
 // ---- Person ----
+// ---- Upcoming (calendar monitor) ----
+function ilDateTime(iso, allDay){
+  const d = new Date(iso);
+  if (allDay) return d.toLocaleDateString("en-GB",{timeZone:"Asia/Jerusalem",day:"numeric",month:"short",year:"numeric"})+" (all day)";
+  return d.toLocaleString("en-GB",{timeZone:"Asia/Jerusalem",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+}
+function renderUpcoming(){
+  const ms = AppLogic.upcomingMeetings(RAW.meetings, new Date());
+  let h = '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>';
+  if (!ms.length) h += '<p class="muted">No upcoming meetings on the calendar.</p>';
+  ms.forEach(m => {
+    const l = MODEL.leadsById[m.leadId], c = l && MODEL.campaignsById[l.campaignId];
+    const bad = AppLogic.meetingMismatch(l, m);
+    h += '<div class="row"><div><div class="main">'+esc(ilDateTime(m.start, m.allDay))
+      + (bad ? ' <span class="badge b-me">calendar — check</span>' : '')
+      + '</div><div class="meta">'
+      + (l ? '<a class="link" onclick="openPerson(\''+esc(m.leadId).replace(/'/g,"\\'")+'\')">'+esc(l.name)+'</a>' : esc(m.leadId))
+      + ' · '+esc(m.title)
+      + (bad && l ? ' <span class="muted">(CRM: '+esc(l.state)+(l.followUpDate?(", "+ilTime(l.followUpDate)):"")+')</span>' : '')
+      + '</div></div>'
+      + (m.joinUrl ? '<a class="btn" href="'+esc(m.joinUrl)+'" target="_blank">Join ↗</a>' : '')
+      + '</div>';
+  });
+  h += '</div>';
+  view.innerHTML = h;
+}
 function renderPerson() {
   if (!window.__personId) {
     view.innerHTML = '<input id="search" placeholder="Search people by name or org…" autocomplete="off" value="'+esc(window.__psearch||"")+'"><div id="results"></div>';
@@ -299,6 +327,10 @@ function renderPerson() {
       + (ob.lastInbound ? ' <span class="muted">(last inbound '+ilTime(ob.lastInbound,true)+')</span>' : '')
       + '</div>';
   h += '<div class="kv"><b>Waiting on:</b> <span class="badge '+(l.waiting==="me"?"b-me":"b-them")+'">'+esc(l.waiting)+'</span></div>';
+  const nm = AppLogic.nextMeeting(RAW.meetings, l.id, new Date());
+  if (nm) h += '<div class="kv"><b>Next meeting:</b> '+esc(ilDateTime(nm.start, nm.allDay))+' · '+esc(nm.title)
+     + (nm.joinUrl ? ' <a class="link" href="'+esc(nm.joinUrl)+'" target="_blank">Join ↗</a>' : '')
+     + (AppLogic.meetingMismatch(l, nm) ? ' <span class="badge b-me">calendar — check</span>' : '') + '</div>';
   h += '<div class="kv"><b>Emails:</b> '+(l.emails&&l.emails.length?esc(l.emails.join(", ")):'<span class="muted">none on file</span>')+'</div>';
   if (l.role) h += '<div class="kv"><b>Role:</b> '+esc(l.role)+'</div>';
   const HANDLES = { linkedin:"LinkedIn", x:"X", website:"Website" };

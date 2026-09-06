@@ -480,6 +480,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json(load_json_file("leads.json", []))
         if p == "/trail":
             return self._json(load_json_file("trail.json", {}))
+        if p == "/meetings":
+            return self._json(load_json_file("meetings.json", []))
         if p == "/observations":
             return self._json(load_json_file("observations.json", {}))
         if p == "/unmatched":

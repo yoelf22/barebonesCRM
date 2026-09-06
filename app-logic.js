@@ -73,7 +73,24 @@
     return { state: { key, label, kind }, isNew: true };
   }
 
-  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, actedSince, closeState };
+  // Upcoming calendar meetings (bot-owned, lead-matched). Future only, soonest first.
+  function upcomingMeetings(meetings, now) {
+    const t = (now || new Date()).toISOString();
+    return (meetings || []).filter(m => String(m.end || m.start) >= t)
+      .slice().sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  }
+  function nextMeeting(meetings, leadId, now) {
+    return upcomingMeetings(meetings, now).find(m => m.leadId === leadId) || null;
+  }
+  // The CRM is behind the calendar when the lead's followUpDate is not the meeting's date —
+  // the reminder would fire on the wrong day, or not at all. Catches reschedules. Drives "check".
+  function meetingMismatch(lead, meeting) {
+    if (!lead || !meeting) return false;
+    return (lead.followUpDate || null) !== String(meeting.start).slice(0, 10);
+  }
+
+  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, actedSince, closeState,
+                upcomingMeetings, nextMeeting, meetingMismatch };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);
