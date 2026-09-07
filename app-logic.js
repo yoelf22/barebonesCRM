@@ -61,8 +61,12 @@
 
   // The state a Won/Drop click lands on: the campaign's existing won/lost state, or — when
   // the campaign never defined one — a new state to add first, with a key not already in use.
-  function closeState(campaign, kind) {
+  function closeState(campaign, kind, currentKey) {
     const states = (campaign && campaign.states) || [];
+    // Already closed this way (e.g. "published" is won-kind): keep the state, never fall back to
+    // another won/lost state further up the list — that silently moved a lead backwards.
+    const cur = states.find(s => s.key === currentKey);
+    if (cur && cur.kind === kind) return { state: cur, isNew: false, already: true };
     // prefer the canonical key so adding a second won-state ("referred") never hijacks the Won button
     const prefer = kind === "won" ? ["won"] : ["lost", "passed"];
     const found = prefer.map(k => states.find(s => s.kind === kind && s.key === k)).find(Boolean)
@@ -89,7 +93,33 @@
     return (lead.followUpDate || null) !== String(meeting.start).slice(0, 10);
   }
 
-  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, actedSince, closeState,
+  // Funnel by furthest stage reached: 0 reached, 1 contacted, 2 engaged, 3 won. Evidence beats
+  // labels: a received message (trail, or the bot's lastInbound) makes a lead engaged whatever
+  // its state says. A campaign whose leads all enter mid-funnel (imported from replies) sets
+  // entryStage on the campaign. A lost lead counts in every stage it reached, and drops at the last.
+  const STAGES = ["reached", "contacted", "engaged", "won"];
+  const ENGAGED = new Set(["replied", "scheduled", "published", "referred", "won", "declined"]);
+  function leadStage(campaign, lead, trail, observations) {
+    const tr = (trail && trail[lead.id]) || [];
+    const ob = observations && observations[lead.id];
+    if (stateKind(campaign, lead.state) === "won") return 3;
+    const floor = Math.max(0, STAGES.indexOf((campaign && campaign.entryStage) || "reached"));
+    const replied = tr.some(e => e.direction === "received") || !!(ob && ob.lastInbound);
+    if (replied || ENGAGED.has(lead.state)) return Math.max(2, floor);
+    if (lead.state !== "prospect" || tr.length) return Math.max(1, floor);
+    return floor;
+  }
+  function funnelStages(campaign, leads, trail, observations) {
+    const reached = [0, 0, 0, 0], lostAt = [0, 0, 0, 0];
+    leads.forEach(l => {
+      const s = leadStage(campaign, l, trail, observations);
+      for (let k = 0; k <= s; k++) reached[k]++;
+      if (stateKind(campaign, l.state) === "lost") lostAt[s]++;
+    });
+    return { stages: STAGES, reached, lostAt };
+  }
+
+  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, funnelStages, actedSince, closeState,
                 upcomingMeetings, nextMeeting, meetingMismatch };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;

@@ -56,10 +56,27 @@ assert.strictEqual(L.closeState({states:[{key:"passed",kind:"active"}]}, "lost")
 const twoWon = {states:[{key:"won",kind:"won"},{key:"referred",kind:"won"},{key:"passed",kind:"lost"}]};
 assert.strictEqual(L.closeState(twoWon, "won").state.key, "won");
 assert.strictEqual(L.closeState(twoWon, "lost").state.key, "passed");
+// a lead already in a won-kind state stays there: Won must not fall back to another won state
+const multiWon = {states:[{key:"scheduled",kind:"won"},{key:"published",kind:"won"},{key:"passed",kind:"lost"}]};
+assert.deepStrictEqual(L.closeState(multiWon, "won", "published"), {state:{key:"published",kind:"won"}, isNew:false, already:true});
+assert.strictEqual(L.closeState(multiWon, "won", "passed").state.key, "scheduled");
 
 // meetingMismatch: true only when followUpDate != meeting date (catches reschedules / missing date)
 assert.strictEqual(L.meetingMismatch({followUpDate:"2026-09-23"},{start:"2026-09-23T10:30:00+03:00"}), false);
 assert.strictEqual(L.meetingMismatch({followUpDate:"2026-09-20"},{start:"2026-09-23T10:30:00+03:00"}), true);
 assert.strictEqual(L.meetingMismatch({followUpDate:null},{start:"2027-01-27T09:00:00+02:00"}), true);
+
+// funnelStages: furthest stage reached; evidence beats labels; entryStage floors imported campaigns
+const fcamp = {id:"x", states:[{key:"prospect",kind:"active"},{key:"contacted",kind:"active"},{key:"followup",kind:"active"},
+  {key:"bounce",kind:"lost"},{key:"declined",kind:"lost"},{key:"won",kind:"won"}]};
+const fleads = [{id:"x:p",state:"prospect"},{id:"x:c",state:"contacted"},{id:"x:b",state:"bounce"},
+  {id:"x:f",state:"followup"},{id:"x:d",state:"declined"},{id:"x:w",state:"won"}];
+const ff = L.funnelStages(fcamp, fleads, {"x:f":[{direction:"received"}]}, {});
+assert.deepStrictEqual(ff.reached, [6,5,3,1]);  // followup with a reply on record is engaged
+assert.deepStrictEqual(ff.lostAt, [0,1,1,0]);   // bounce drops at contacted, declined at engaged
+const fo = L.funnelStages(fcamp, [{id:"x:o",state:"followup"}], {}, {"x:o":{lastInbound:"2026-09-01T00:00:00Z"}});
+assert.deepStrictEqual(fo.reached, [1,1,1,0]);  // bot-observed inbound counts as a reply
+const fa = L.funnelStages({id:"a",entryStage:"engaged",states:[{key:"passed",kind:"lost"}]}, [{id:"a:1",state:"passed"}], {}, {});
+assert.deepStrictEqual(fa.reached, [1,1,1,0]); assert.deepStrictEqual(fa.lostAt, [0,0,1,0]);
 
 console.log("ok");
