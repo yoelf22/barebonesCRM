@@ -412,7 +412,9 @@ function renderPerson() {
   const lostState = (c && c.states || []).find(s => s.kind === "lost");
   h += '<div class="controls">'
     + '<label>State <select onchange="save(\''+idJs+'\',{state:this.value})">'+stateOpts+'</select></label>'
-    + '<label>Follow-up <input type="date" value="'+esc(l.followUpDate||"")+'" onchange="save(\''+idJs+'\',{followUpDate:this.value||null})"></label>'
+    + '<label>Follow-up <input type="date" value="'+esc(l.followUpDate||"")+'" onchange="save(\''+idJs+'\',{followUpDate:this.value||null})">'
+    + ' <span style="color:#8a8a82">or in</span> <input type="number" id="ndays" value="10" min="1" style="width:52px"> days '
+    + '<button class="btn" onclick="snooze(\''+idJs+'\',parseInt(document.getElementById(\'ndays\').value,10)||10)">set</button></label>'
     + '<label>Waiting <select onchange="save(\''+idJs+'\',{waiting:this.value})"><option value="them"'+(l.waiting==="them"?" selected":"")+'>them</option><option value="me"'+(l.waiting==="me"?" selected":"")+'>me</option></select></label>'
     + '<span class="err" id="saveerr"></span></div>';
   h += '<div class="controls">'
@@ -422,13 +424,9 @@ function renderPerson() {
     + '<label>X <input value="'+esc((l.handles||{}).x||"")+'" placeholder="https://x.com/…" onchange="saveHandle(\''+idJs+'\',\'x\',this.value)"></label>'
     + '<label>Website <input value="'+esc((l.handles||{}).website||"")+'" placeholder="https://…" onchange="saveHandle(\''+idJs+'\',\'website\',this.value)"></label>'
     + '</div>';
-  // Quick actions: schedule next touch (default 10 days), or close on win / drop
+  // Close on win / drop
   h += '<div class="actionbar">'
-    + '<b>Next touch:</b>'
-    + '<button class="btn" onclick="snooze(\''+idJs+'\',10)">+10 days</button>'
-    + '<label style="font-size:12px;color:#6b6b66">or <input type="number" id="ndays" value="10" min="1" style="width:52px"> days '
-    + '<button class="btn" onclick="snooze(\''+idJs+'\',parseInt(document.getElementById(\'ndays\').value,10)||10)">set</button></label>'
-    + '<span style="width:12px"></span><b>Close:</b>'
+    + '<b>Close:</b>'
     + '<button class="btn win" onclick="closeAs(\''+idJs+'\',\'won\')"'+(wonState?'':' title="adds a Won state to this campaign"')+'>✓ Won</button>'
     + '<button class="btn drop" onclick="closeAs(\''+idJs+'\',\'lost\')"'+(lostState?'':' title="adds a Passed state to this campaign"')+'>✕ Drop</button>'
     + '</div>';
