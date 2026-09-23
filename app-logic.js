@@ -79,13 +79,28 @@
 
   // Upcoming calendar meetings (bot-owned, lead-matched). Future only, soonest first.
   function upcomingMeetings(meetings, now) {
-    const t = (now || new Date()).toISOString();
-    return (meetings || []).filter(m => String(m.end || m.start) >= t)
+    // Real dates, not strings: "19:45:00+03:00" sorts after "16:07:22Z" as text, so a
+    // finished meeting stayed "upcoming" all evening.
+    const t = now || new Date();
+    return (meetings || []).filter(m => new Date(m.end || m.start) >= t)
       .slice().sort((a, b) => String(a.start).localeCompare(String(b.start)));
   }
   function nextMeeting(meetings, leadId, now) {
     return upcomingMeetings(meetings, now).find(m => m.leadId === leadId) || null;
   }
+  // Urgency rank for a lead list, lowest first: bot flag, you owe, overdue, due today,
+  // dated ahead, undated active, won, lost. `flag` is the caller's bot-flag verdict.
+  function leadUrgency(lead, kind, flag, today) {
+    const t = (today || new Date()).toISOString().slice(0, 10);
+    if (flag) return 0;
+    if (lead.waiting === "me") return 1;
+    if (kind === "active") {
+      if (!lead.followUpDate) return 5;
+      return lead.followUpDate < t ? 2 : lead.followUpDate === t ? 3 : 4;
+    }
+    return kind === "won" ? 6 : 7;
+  }
+
   // The CRM is behind the calendar when the lead's followUpDate is not the meeting's date —
   // the reminder would fire on the wrong day, or not at all. Catches reschedules. Drives "check".
   function meetingMismatch(lead, meeting) {
@@ -128,7 +143,7 @@
   }
 
   const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, funnelStages, actedSince, closeState,
-                upcomingMeetings, nextMeeting, meetingMismatch, lastAction };
+                upcomingMeetings, nextMeeting, meetingMismatch, leadUrgency, lastAction };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);

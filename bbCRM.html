@@ -216,15 +216,21 @@ function cal(l) {
 function renderToday() {
   const now = new Date();
   const obs = RAW.observations || {};
+  const today = now.toISOString().slice(0,10);
+  // A live meeting today is today's work whatever the row's state says (a booked podcast
+  // sits in a won state and would otherwise never surface here).
+  const meetToday = {};
+  AppLogic.upcomingMeetings(RAW.meetings, now).forEach(m => {
+    if (String(m.start).slice(0,10) === today && !meetToday[m.leadId]) meetToday[m.leadId] = m;
+  });
   const rows = RAW.leads.filter(l => {
     if (cal(l)) return false;   // calendar cases live in the Upcoming meetings frame, not here
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
-    return flagged(l) || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
+    return flagged(l) || meetToday[l.id] || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
-  const today = now.toISOString().slice(0,10);
-  const overdue = rows.filter(l => l.followUpDate && l.followUpDate < today);
-  const current = rows.filter(l => !l.followUpDate || l.followUpDate === today);
+  const overdue = rows.filter(l => !meetToday[l.id] && l.followUpDate && l.followUpDate < today);
+  const current = rows.filter(l => meetToday[l.id] || !l.followUpDate || l.followUpDate === today);
   // every future-dated item worth seeing ahead of time — not only flagged ones (a scheduled
   // follow-up should show before its date). Calendar cases live in the meetings frame.
   const upcoming = RAW.leads.filter(l => !cal(l) && l.followUpDate && l.followUpDate > today
@@ -236,7 +242,8 @@ function renderToday() {
       + (flagged(l)?('<span class="badge b-me">'+(String(obs[l.id].reason||"").startsWith("calendar:")?"calendar — check":"reply — act")+'</span>'):'')
       + (l.waiting==="me"?'<span class="badge b-me">you owe</span>':'')+'</div>'
       + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(campName(l.campaignId))+' · '+esc(l.state)+'</div></div>'
-      + '<div class="meta">'+(cal(l) ? esc(cal(l)) : (l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):""))+'</div></div>';
+      + '<div class="meta">'+(meetToday[l.id] ? "meeting " + esc(ilTime(meetToday[l.id].start, true))
+          : cal(l) ? esc(cal(l)) : (l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):""))+'</div></div>';
   };
   let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
     + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
@@ -301,10 +308,19 @@ function renderCampaigns() {
         + '<span class="num"><b>'+n+'</b>'+(k ? ' · '+pct(n, f.reached[k-1]) : '')+(lost ? ' · '+lost+' dropped' : '')+'</span></div>';
     });
     h += '<details><summary class="link" style="margin-top:6px">show '+leads.length+' leads</summary>';
-    leads.slice().sort((a,b)=>String(a.state).localeCompare(String(b.state))).forEach(l => {
-      const org = MODEL.orgsById[l.orgId];
-      h += '<div class="row"><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a></div>'
-        + '<div class="meta">'+esc(org?org.name:"")+' · '+esc(l.state)+'</div></div>';
+    const now = new Date(), today = now.toISOString().slice(0,10);
+    const urg = l => AppLogic.leadUrgency(l, AppLogic.stateKind(c, l.state), flagged(l), now);
+    leads.slice().sort((a,b) => urg(a)-urg(b)
+        || String(a.followUpDate||"9999").localeCompare(String(b.followUpDate||"9999"))
+        || a.name.localeCompare(b.name)).forEach(l => {
+      const org = MODEL.orgsById[l.orgId], kind = AppLogic.stateKind(c, l.state), u = urg(l);
+      const cls = u <= 1 ? "b-me" : {active:"b-active",won:"b-won",lost:"b-lost"}[kind] || "b-lost";
+      const when = u === 0 ? "reply — act" : u === 1 ? "you owe"
+        : l.followUpDate && kind === "active" ? (l.followUpDate < today ? "overdue since " : "due ") + ilTime(l.followUpDate) : "";
+      h += '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
+        + '<span class="badge '+cls+'">'+esc(l.state)+'</span></div>'
+        + '<div class="meta">'+esc(org?org.name:"")+'</div></div>'
+        + '<div class="meta"'+(u === 2 ? ' style="color:#b42318"' : '')+'>'+esc(when)+'</div></div>';
     });
     h += '</details></div>';
   });

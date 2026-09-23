@@ -81,6 +81,36 @@ assert.deepStrictEqual(fa.reached, [1,1,1,0]); assert.deepStrictEqual(fa.lostAt,
 
 console.log("ok");
 
+// upcomingMeetings: a meeting that ended earlier today is not upcoming, even though its
+// "+03:00" string sorts after a UTC "Z" timestamp.
+{
+  const A = require("./app-logic.js");
+  const now = new Date("2026-09-09T16:07:00Z"); // 19:07 Israel
+  const ms = [
+    { leadId: "past", start: "2026-09-09T16:00:00+03:00", end: "2026-09-09T16:45:00+03:00" },
+    { leadId: "soon", start: "2026-09-09T19:30:00+03:00", end: "2026-09-09T19:45:00+03:00" },
+  ];
+  const ids = A.upcomingMeetings(ms, now).map(m => m.leadId);
+  console.assert(JSON.stringify(ids) === '["soon"]', "finished meeting still upcoming: " + ids);
+}
+
+// leadUrgency: flagged < owed < overdue < due today < ahead < undated active < won < lost.
+{
+  const A = require("./app-logic.js");
+  const d = new Date("2026-09-09T12:00:00Z");
+  const r = [
+    A.leadUrgency({waiting:"them"}, "active", true, d),
+    A.leadUrgency({waiting:"me"}, "won", false, d),
+    A.leadUrgency({waiting:"them", followUpDate:"2026-09-01"}, "active", false, d),
+    A.leadUrgency({waiting:"them", followUpDate:"2026-09-09"}, "active", false, d),
+    A.leadUrgency({waiting:"them", followUpDate:"2026-09-19"}, "active", false, d),
+    A.leadUrgency({waiting:"them"}, "active", false, d),
+    A.leadUrgency({waiting:"them", followUpDate:"2026-09-01"}, "won", false, d),
+    A.leadUrgency({waiting:"them"}, "lost", false, d),
+  ];
+  console.assert(JSON.stringify(r) === "[0,1,2,3,4,5,6,7]", "urgency order: " + r);
+}
+
 // lastAction: newest trail event wins; bot lastInbound fills in when newer or when there is no trail.
 {
   const A = require("./app-logic.js");
