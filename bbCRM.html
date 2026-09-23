@@ -78,6 +78,39 @@ a.link:hover { text-decoration:underline; }
 .dead { opacity:.55; }
 .kv { margin:2px 0; font-size:13px; }
 .kv b { font-weight:600; color:#4a4a46; }
+/* person card: boxed sections */
+.hd { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding-bottom:12px; border-bottom:2px solid #e7e7e2; }
+.hd h2 { margin:0; font-size:20px; line-height:1.2; }
+.hd .sub { color:#6b6b66; font-size:13px; margin-top:3px; }
+.hd .btn { white-space:nowrap; flex-shrink:0; }
+.strip { display:flex; flex-wrap:wrap; align-items:stretch; margin:12px 0 0; border:1px solid #e7e7e2; border-radius:8px; overflow:hidden; background:#fafaf8; font-size:13px; }
+.strip > span { padding:8px 14px; border-right:1px solid #e7e7e2; display:flex; flex-direction:column; gap:2px; }
+.strip > span:last-child { border-right:none; }
+.strip .k { color:#8a8a82; font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+.panel { margin-top:14px; border:1px solid #e7e7e2; border-radius:8px; overflow:hidden; background:#fff; }
+.panel h4 { margin:0; padding:7px 12px; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#6b6b66; background:#f3f3ef; border-bottom:1px solid #e7e7e2; }
+.panel .body { padding:12px; }
+.panel.act { border-color:#c7d9f7; } .panel.act h4 { background:#eaf1ff; color:#1f6feb; border-bottom-color:#c7d9f7; }
+.next { display:flex; flex-wrap:wrap; gap:10px 22px; align-items:flex-start; }
+.next label, .grid label { display:flex; flex-direction:column; gap:3px; font-size:11px; color:#6b6b66; }
+.next .fu { display:flex; gap:4px; align-items:center; }
+.next .close { margin-left:auto; display:flex; flex-direction:column; gap:3px; padding-left:22px; border-left:1px solid #e7e7e2; font-size:11px; color:#6b6b66; }
+.next .close .btns { display:flex; gap:8px; }
+.next select, .next input, .next .btn { height:34px; box-sizing:border-box; font:inherit; font-size:13px; padding:5px 7px; border:1px solid #d8d8d2; border-radius:6px; background:#fff; }
+.next .btn { font-size:12px; font-weight:600; padding:5px 11px; }
+.next .btn.win.on, .next .btn.drop.on { color:#fff; }
+.grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px 16px; }
+.grid input { width:100%; box-sizing:border-box; font:inherit; font-size:13px; padding:5px 7px; border:1px solid #d8d8d2; border-radius:6px; background:#fff; }
+.links { margin-top:10px; padding-top:8px; border-top:1px solid #f0f0ec; font-size:13px; }
+.notes { font-size:13px; color:#4a4a46; }
+.hist .add { display:flex; gap:6px; margin:0 0 8px; padding-bottom:10px; border-bottom:1px solid #e7e7e2; }
+.hist .add input { flex:1; font:inherit; font-size:13px; padding:6px 8px; border:1px solid #d8d8d2; border-radius:6px; }
+.h-row { display:grid; grid-template-columns:96px 22px minmax(0,1fr); gap:8px; padding:7px 0; border-top:1px solid #f0f0ec; font-size:12px; }
+.h-row:first-of-type { border-top:none; }
+.h-when { color:#9a9a92; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.h-mark { text-align:center; font-weight:700; color:#6b6b66; } .h-mark.out { color:#1f6feb; } .h-mark.in { color:#1c7a3f; }
+.h-who { color:#8a8a82; }
+@media (max-width:600px) { .grid { grid-template-columns:1fr; } .next .close { margin-left:0; padding-left:0; border-left:none; } }
 .ptable { width:100%; border-collapse:collapse; background:#fff; border:1px solid #e7e7e2; border-radius:10px; overflow:hidden; }
 .ptable th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#6b6b66; padding:9px 12px; border-bottom:1px solid #e7e7e2; cursor:pointer; user-select:none; white-space:nowrap; }
 .ptable th:hover { color:#1f1f1d; }
@@ -397,13 +430,34 @@ function renderPerson() {
     badges += '<span class="badge b-mismatch">format mismatch</span>';
 
   let h = '<div style="margin-bottom:10px"><a class="link" onclick="window.__personId=null;render()">← all people</a></div>';
-  h += '<div class="card"><h3>'+esc(l.name)+' '+badges
-     + (l.gmailThreadId ? '<a class="btn" style="float:right" href="https://mail.google.com/mail/u/0/#all/'+esc(l.gmailThreadId)+'" target="_blank">Open Gmail thread ↗</a>' : '')
-     + '</h3>';
-  h += '<div class="kv"><b>Org:</b> '+esc(org?org.name:"—")
-     + (roll?(' <span class="badge '+(roll.alive?"b-active":"b-lost")+'">'+(roll.alive?"alive":"dead")+'</span> '
-        + '<span class="muted">'+roll.leadCount+' lead(s): '+roll.counts.active+' active / '+roll.counts.won+' won / '+roll.counts.lost+' lost</span>'):'')+'</div>';
-  h += '<div class="kv"><b>Campaign:</b> '+esc(campName(l.campaignId))+' · <b>state:</b> '+esc(l.state)+' '+kindBadge(AppLogic.stateKind(c,l.state))+'</div>';
+  h += '<div class="card">';
+  // header: name + badges; role and org underneath; Gmail on the right
+  const orgLine = org ? '<b>'+esc(org.name)+'</b>'
+    + (roll && roll.leadCount > 1 ? ' <span class="muted">· '+roll.leadCount+' leads: '+roll.counts.active+' active / '+roll.counts.won+' won / '+roll.counts.lost+' lost</span>' : '')
+    : '<span class="muted">no org</span>';
+  h += '<div class="hd"><div><h2>'+esc(l.name)+' '+badges+'</h2>'
+    + '<div class="sub">'+(l.role ? esc(l.role)+' · ' : '')+orgLine+'</div></div>'
+    + (l.gmailThreadId ? '<a class="btn" href="https://mail.google.com/mail/u/0/#all/'+esc(l.gmailThreadId)+'" target="_blank">Open Gmail thread ↗</a>' : '')
+    + '</div>';
+  // status strip
+  const curKind = AppLogic.stateKind(c, l.state);
+  const la = AppLogic.lastAction(MODEL.trailByLead[l.id], (RAW.observations || {})[l.id]);
+  const todayIso = new Date().toISOString().slice(0,10);
+  const due = !l.followUpDate ? '<span class="muted">none</span>'
+    : l.followUpDate < todayIso ? '<b style="color:#b42318">overdue · '+esc(ilTime(l.followUpDate))+'</b>'
+    : l.followUpDate === todayIso ? '<b>today</b>' : esc(ilTime(l.followUpDate));
+  h += '<div class="strip">'
+    + '<span><span class="k">Campaign</span>'+esc(campName(l.campaignId))+'</span>'
+    + '<span><span class="k">State</span><span>'+esc(l.state)+' '+kindBadge(curKind)+'</span></span>'
+    + '<span><span class="k">Waiting on</span><span class="badge '+(l.waiting==="me"?"b-me":"b-them")+'">'+esc(l.waiting)+'</span></span>'
+    + (la ? '<span><span class="k">Last action</span>'+(la.direction==="sent"?"→ you sent":"← you received")+' · '+esc(ilTime(la.date))+'</span>' : '')
+    + '<span><span class="k">Due</span>'+due+'</span>';
+  if (l.referredBy) { const rb = MODEL.leadsById[l.referredBy];
+    h += '<span><span class="k">Referred by</span>'+(rb?'<a class="link" onclick="openPerson(\''+esc(l.referredBy).replace(/'/g,"\\'")+'\')">'+esc(rb.name)+'</a>':esc(l.referredBy))+'</span>'; }
+  if (fa.paidStatus && fa.paidStatus!=="free") h += '<span><span class="k">Paid</span>'+esc(fa.paidStatus)+(fa.amount?(" ("+esc(fa.amount)+")"):"")+'</span>';
+  if (fa.formatRequested || fa.formatSent) h += '<span><span class="k">Format</span>asked '+esc(fa.formatRequested||"?")+' / sent '+esc(fa.formatSent||"?")+'</span>';
+  h += '</div>';
+  // bot signal, next meeting, unresolved flag — directly under the strip
   const ob = (RAW.observations || {})[l.id];
   if (ob && (ob.needsAction || (ob.suggestedState && ob.suggestedState !== l.state)))
     h += '<div class="flagbox">🔔 <b>Bot signal:</b> '
@@ -412,29 +466,12 @@ function renderPerson() {
       + (ob.reason ? ' — '+esc(ob.reason) : '')
       + (ob.lastInbound ? ' <span class="muted">(last inbound '+ilTime(ob.lastInbound,true)+')</span>' : '')
       + '</div>';
-  h += '<div class="kv"><b>Waiting on:</b> <span class="badge '+(l.waiting==="me"?"b-me":"b-them")+'">'+esc(l.waiting)+'</span></div>';
-  const la = AppLogic.lastAction(MODEL.trailByLead[l.id], (RAW.observations || {})[l.id]);
-  if (la) h += '<div class="kv"><b>Last action:</b> '+(la.direction==="sent"?"→ you sent":"← you received")+' · '+esc(ilTime(la.date))+'</div>';
   const nm = AppLogic.nextMeeting(RAW.meetings, l.id, new Date());
-  if (nm) h += '<div class="kv"><b>Next meeting:</b> '+esc(ilDateTime(nm.start, nm.allDay))+' · '+esc(nm.title)
+  if (nm) h += '<div class="flagbox">📅 <b>Next meeting:</b> '+esc(ilDateTime(nm.start, nm.allDay))+' · '+esc(nm.title)
      + (nm.joinUrl ? ' <a class="link" href="'+esc(nm.joinUrl)+'" target="_blank">Join ↗</a>' : '')
      + (AppLogic.meetingMismatch(l, nm) ? ' <span class="badge b-me">calendar — check</span>' : '') + '</div>';
-  h += '<div class="kv"><b>Emails:</b> '+(l.emails&&l.emails.length?esc(l.emails.join(", ")):'<span class="muted">none on file</span>')+'</div>';
-  if (l.role) h += '<div class="kv"><b>Role:</b> '+esc(l.role)+'</div>';
-  if ((l.handles||{}).phone) h += '<div class="kv"><b>Phone:</b> <a class="link" href="tel:'+esc(l.handles.phone.replace(/[^+\d]/g,""))+'">'+esc(l.handles.phone)+'</a></div>';
-  const HANDLES = { linkedin:"LinkedIn", x:"X", website:"Website" };
-  const hs = l.handles || {};
-  const links = [];
-  Object.keys(HANDLES).forEach(k => { const u = safeUrl(hs[k]); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">'+HANDLES[k]+' ↗</a>'); });
-  { const u = org && safeUrl(org.url); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">Org site ↗</a>'); }
-  if (links.length) h += '<div class="kv"><b>Links:</b> '+links.join(' · ')+'</div>';
-  if (l.referredBy) { const rb = MODEL.leadsById[l.referredBy];
-    h += '<div class="kv"><b>Referred by:</b> '+(rb?'<a class="link" onclick="openPerson(\''+esc(l.referredBy).replace(/'/g,"\\'")+'\')">'+esc(rb.name)+'</a>':esc(l.referredBy))+'</div>'; }
-  if (fa.paidStatus && fa.paidStatus!=="free") h += '<div class="kv"><b>Paid:</b> '+esc(fa.paidStatus)+(fa.amount?(" ("+esc(fa.amount)+")"):"")+'</div>';
-  if (fa.formatRequested || fa.formatSent) h += '<div class="kv"><b>Format:</b> asked '+esc(fa.formatRequested||"?")+' / sent '+esc(fa.formatSent||"?")+'</div>';
   const flag = flagText(l.notes);
   const noteBase = flag ? stripFlag(l.notes) : l.notes;
-  if (noteBase) h += '<div class="kv"><b>Notes:</b> '+esc(noteBase)+'</div>';
   if (flag) {
     h += '<div class="flagbox">⚠ <b>Unresolved flag:</b> '+esc(flag.replace(/^⚠\s*/,""))
       + '<div class="frow">'
@@ -446,55 +483,56 @@ function renderPerson() {
       + '</div></div>';
   }
 
-  // write-back controls
+  // Next step: state, waiting, follow-up, close — everything you act on, in one box
   const stateOpts = (c && c.states || []).map(s => '<option value="'+esc(s.key)+'"'+(s.key===l.state?" selected":"")+'>'+esc(s.label)+'</option>').join("");
   const wonState = (c && c.states || []).find(s => s.kind === "won");
   const lostState = (c && c.states || []).find(s => s.kind === "lost");
-  const curKind = AppLogic.stateKind(c, l.state);
-  h += '<div class="controls">'
-    + '<label>State <select onchange="save(\''+idJs+'\',{state:this.value})">'+stateOpts+'</select></label>'
-    + '<label>Follow-up <input type="date" value="'+esc(l.followUpDate||"")+'" onchange="save(\''+idJs+'\',{followUpDate:this.value||null})">'
-    + ' <span style="color:#8a8a82">or in</span> <input type="number" id="ndays" value="10" min="1" style="width:52px"> days '
-    + '<button class="btn" onclick="snooze(\''+idJs+'\',parseInt(document.getElementById(\'ndays\').value,10)||10)">set</button></label>'
-    + '<label>Waiting <select onchange="save(\''+idJs+'\',{waiting:this.value})"><option value="them"'+(l.waiting==="them"?" selected":"")+'>them</option><option value="me"'+(l.waiting==="me"?" selected":"")+'>me</option></select></label>'
-    + '<span class="err" id="saveerr"></span></div>';
-  h += '<div class="controls">'
-    + '<label>Email <input value="'+esc((l.emails||[]).join(", "))+'" placeholder="a@x.com, b@y.com" onchange="save(\''+idJs+'\',{emails:this.value.split(\',\').map(function(x){return x.trim()}).filter(Boolean)})"></label>'
-    + '<label>Role <input value="'+esc(l.role||"")+'" placeholder="title / who they are" onchange="save(\''+idJs+'\',{role:this.value.trim()||null})"></label>'
-    + '<label>Phone <input type="tel" value="'+esc((l.handles||{}).phone||"")+'" placeholder="+972 …" onchange="saveHandle(\''+idJs+'\',\'phone\',this.value)"></label>'
-    + '<label>LinkedIn <input value="'+esc((l.handles||{}).linkedin||"")+'" placeholder="https://linkedin.com/in/…" onchange="saveHandle(\''+idJs+'\',\'linkedin\',this.value)"></label>'
-    + '<label>X <input value="'+esc((l.handles||{}).x||"")+'" placeholder="https://x.com/…" onchange="saveHandle(\''+idJs+'\',\'x\',this.value)"></label>'
-    + '<label>Website <input value="'+esc((l.handles||{}).website||"")+'" placeholder="https://…" onchange="saveHandle(\''+idJs+'\',\'website\',this.value)"></label>'
-    + '</div>';
-  // Close on win / drop
-  // Closed already: the current outcome shows solid and inert, the other reads as a switch.
   const closed = curKind === "won" || curKind === "lost";
-  h += '<div class="actionbar">'
-    + '<b>'+(closed ? "Closed:" : "Close:")+'</b>'
+  h += '<div class="panel act"><h4>Next step</h4><div class="body"><div class="next">'
+    + '<label>State <select onchange="save(\''+idJs+'\',{state:this.value})">'+stateOpts+'</select></label>'
+    + '<label>Waiting on <select onchange="save(\''+idJs+'\',{waiting:this.value})"><option value="them"'+(l.waiting==="them"?" selected":"")+'>them</option><option value="me"'+(l.waiting==="me"?" selected":"")+'>me</option></select></label>'
+    + '<label>Follow-up <span class="fu"><input type="date" value="'+esc(l.followUpDate||"")+'" onchange="save(\''+idJs+'\',{followUpDate:this.value||null})">'
+    + ' <span class="muted">or in</span> <input type="number" id="ndays" value="10" min="1" style="width:56px"> <span class="muted">days</span> '
+    + '<button class="btn" onclick="snooze(\''+idJs+'\',parseInt(document.getElementById(\'ndays\').value,10)||10)">set</button></span></label>'
+    + '<div class="close">'+(closed ? "Closed" : "Close")+'<div class="btns">'
     + '<button class="btn win'+(curKind==="won"?' on':'')+'" onclick="closeAs(\''+idJs+'\',\'won\')"'+(curKind==="won"?' disabled title="current outcome"':(wonState?'':' title="adds a Won state to this campaign"'))+'>✓ Won'+(curKind==="lost"?' instead':'')+'</button>'
     + '<button class="btn drop'+(curKind==="lost"?' on':'')+'" onclick="closeAs(\''+idJs+'\',\'lost\')"'+(curKind==="lost"?' disabled title="current outcome"':(lostState?'':' title="adds a Passed state to this campaign"'))+'>✕ Drop'+(curKind==="won"?' instead':'')+'</button>'
-    + (closed ? ' <span class="muted">reopen: pick an active state above</span>' : '')
-    + '</div>';
+    + '</div>'+(closed ? '<span class="muted">reopen: pick an active state</span>' : '')+'</div>'
+    + '<span class="err" id="saveerr"></span>'
+    + '</div></div></div>';
 
-  // trail
-  const tr = (MODEL.trailByLead[l.id] || []).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-  h += '<div style="margin-top:8px"><b>Trail</b>';
-  if (!tr.length) h += ' <span class="muted">— no trail events yet</span>';
-  tr.forEach(e => h += '<div class="trail-row"><span class="trail-when">'+ilTime(e.date,true)+'</span>'
-    + '<span>'+esc(e.direction||"")+' · '+esc(e.summary||"")+(e.gmailLink?(' <a class="link" href="'+esc(e.gmailLink)+'" target="_blank">↗</a>'):"")+'</span></div>');
-  h += '</div>';
-  // Log — your own dated notes & decisions (stored in comments.json, separate from the bot Trail)
-  const log = (RAW.comments || []).filter(x => x.key === l.id)
-    .slice().sort((a,b) => String(b.ts).localeCompare(String(a.ts)));
-  h += '<div style="margin-top:12px"><b>Log</b> <span class="muted">— your dated notes & decisions</span>';
-  h += '<div style="display:flex;gap:6px;margin:6px 0"><input id="noteinput" placeholder="Record a thought or decision…" '
-    + 'style="flex:1;font:inherit;font-size:13px;padding:6px 8px;border:1px solid #d8d8d2;border-radius:6px" '
-    + 'onkeydown="if(event.key===\'Enter\')addNote(\''+idJs+'\')">'
-    + '<button class="btn" onclick="addNote(\''+idJs+'\')">Add</button></div>';
-  if (!log.length) h += '<span class="muted" style="font-size:12px">No log entries yet.</span>';
-  log.forEach(x => h += '<div class="trail-row"><span class="trail-when">'+ilTime(x.ts,true)+'</span>'
-    + '<span>'+esc(x.text)+(x.link?(' <a class="link" href="'+esc(x.link)+'" target="_blank">↗</a>'):"")+' <span class="muted">— '+esc(x.author||"")+'</span></span></div>');
+  // Contact: the inputs are the single source of truth; links derived underneath
+  const HANDLES = { linkedin:"LinkedIn", x:"X", website:"Website" };
+  const hs = l.handles || {};
+  h += '<div class="panel"><h4>Contact</h4><div class="body"><div class="grid">'
+    + '<label>Email <input value="'+esc((l.emails||[]).join(", "))+'" placeholder="a@x.com, b@y.com" onchange="save(\''+idJs+'\',{emails:this.value.split(\',\').map(function(x){return x.trim()}).filter(Boolean)})"></label>'
+    + '<label>Role <input value="'+esc(l.role||"")+'" placeholder="title / who they are" onchange="save(\''+idJs+'\',{role:this.value.trim()||null})"></label>'
+    + '<label>Phone <input type="tel" value="'+esc(hs.phone||"")+'" placeholder="+972 …" onchange="saveHandle(\''+idJs+'\',\'phone\',this.value)"></label>'
+    + '<label>LinkedIn <input value="'+esc(hs.linkedin||"")+'" placeholder="https://linkedin.com/in/…" onchange="saveHandle(\''+idJs+'\',\'linkedin\',this.value)"></label>'
+    + '<label>X <input value="'+esc(hs.x||"")+'" placeholder="https://x.com/…" onchange="saveHandle(\''+idJs+'\',\'x\',this.value)"></label>'
+    + '<label>Website <input value="'+esc(hs.website||"")+'" placeholder="https://…" onchange="saveHandle(\''+idJs+'\',\'website\',this.value)"></label>'
+    + '</div>';
+  const links = [];
+  if (hs.phone) links.push('<a class="link" href="tel:'+esc(hs.phone.replace(/[^+\d]/g,""))+'">Call ↗</a>');
+  Object.keys(HANDLES).forEach(k => { const u = safeUrl(hs[k]); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">'+HANDLES[k]+' ↗</a>'); });
+  { const u = org && safeUrl(org.url); if (u) links.push('<a class="link" href="'+esc(u)+'" target="_blank">Org site ↗</a>'); }
+  if (links.length) h += '<div class="links"><span class="muted">Links</span> &nbsp;'+links.join(' · ')+'</div>';
   h += '</div></div>';
+
+  if (noteBase) h += '<div class="panel"><h4>Notes</h4><div class="body notes">'+esc(noteBase)+'</div></div>';
+
+  // History: bot Trail (sent/received) and your Log (notes) in one timeline, newest first
+  const hist = (MODEL.trailByLead[l.id] || []).map(e => ({ t:String(e.date||""), mark:e.direction==="sent"?"→":"←", cls:e.direction==="sent"?"out":"in", text:e.summary||"", link:e.gmailLink, who:"" }))
+    .concat((RAW.comments || []).filter(x => x.key === l.id).map(x => ({ t:String(x.ts||""), mark:"✎", cls:"", text:x.text, link:x.link, who:x.author||"" })))
+    .sort((a,b) => b.t.localeCompare(a.t));
+  h += '<div class="panel hist"><h4>History</h4><div class="body">'
+    + '<div class="add"><input id="noteinput" placeholder="Record a thought or decision…" onkeydown="if(event.key===\'Enter\')addNote(\''+idJs+'\')">'
+    + '<button class="btn" onclick="addNote(\''+idJs+'\')">Add</button></div>';
+  if (!hist.length) h += '<span class="muted">Nothing yet — no emails matched and no notes.</span>';
+  hist.forEach(x => h += '<div class="h-row"><span class="h-when">'+ilTime(x.t,true)+'</span><span class="h-mark '+x.cls+'">'+x.mark+'</span>'
+    + '<span>'+esc(x.text)+(x.link?(' <a class="link" href="'+esc(x.link)+'" target="_blank">↗</a>'):"")+(x.who?' <span class="h-who">— '+esc(x.who)+'</span>':'')+'</span></div>');
+  h += '</div></div>';
+  h += '</div>';
   view.innerHTML = h;
 }
 
