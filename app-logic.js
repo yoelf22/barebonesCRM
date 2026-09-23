@@ -119,8 +119,16 @@
     return { stages: STAGES, reached, lostAt };
   }
 
+  // Last touch on a lead: newest trail event, else the bot's lastInbound. null when neither.
+  function lastAction(trail, ob) {
+    let best = null;
+    (trail || []).forEach(e => { if (e.date && (!best || String(e.date) > String(best.date))) best = { date: e.date, direction: e.direction }; });
+    if (ob && ob.lastInbound && (!best || String(ob.lastInbound) > String(best.date))) best = { date: ob.lastInbound, direction: "received" };
+    return best;
+  }
+
   const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, funnelStages, actedSince, closeState,
-                upcomingMeetings, nextMeeting, meetingMismatch };
+                upcomingMeetings, nextMeeting, meetingMismatch, lastAction };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;
 })(typeof window !== "undefined" ? window : globalThis);

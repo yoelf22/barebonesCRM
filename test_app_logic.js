@@ -80,3 +80,13 @@ const fa = L.funnelStages({id:"a",entryStage:"engaged",states:[{key:"passed",kin
 assert.deepStrictEqual(fa.reached, [1,1,1,0]); assert.deepStrictEqual(fa.lostAt, [0,0,1,0]);
 
 console.log("ok");
+
+// lastAction: newest trail event wins; bot lastInbound fills in when newer or when there is no trail.
+{
+  const A = require("./app-logic.js");
+  const tr = [{date:"2026-08-25T14:05:20Z",direction:"sent"},{date:"2026-08-31T12:20:34Z",direction:"received"}];
+  console.assert(A.lastAction(tr, null).direction === "received", "newest trail event");
+  console.assert(A.lastAction(tr, {lastInbound:"2026-09-06T07:55:15Z"}).date === "2026-09-06T07:55:15Z", "newer lastInbound wins");
+  console.assert(A.lastAction([], {lastInbound:"2026-09-04T05:40:56Z"}).direction === "received", "lastInbound alone");
+  console.assert(A.lastAction([], null) === null, "nothing known");
+}

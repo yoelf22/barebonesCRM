@@ -394,6 +394,8 @@ function renderPerson() {
       + (ob.lastInbound ? ' <span class="muted">(last inbound '+ilTime(ob.lastInbound,true)+')</span>' : '')
       + '</div>';
   h += '<div class="kv"><b>Waiting on:</b> <span class="badge '+(l.waiting==="me"?"b-me":"b-them")+'">'+esc(l.waiting)+'</span></div>';
+  const la = AppLogic.lastAction(MODEL.trailByLead[l.id], (RAW.observations || {})[l.id]);
+  if (la) h += '<div class="kv"><b>Last action:</b> '+(la.direction==="sent"?"→ you sent":"← you received")+' · '+esc(ilTime(la.date))+'</div>';
   const nm = AppLogic.nextMeeting(RAW.meetings, l.id, new Date());
   if (nm) h += '<div class="kv"><b>Next meeting:</b> '+esc(ilDateTime(nm.start, nm.allDay))+' · '+esc(nm.title)
      + (nm.joinUrl ? ' <a class="link" href="'+esc(nm.joinUrl)+'" target="_blank">Join ↗</a>' : '')
