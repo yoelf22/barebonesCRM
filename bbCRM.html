@@ -63,6 +63,9 @@ a.link:hover { text-decoration:underline; }
 .btn.drop { border-color:#e0b4ae; color:#b42318; }
 .btn.drop:hover { background:#fde8e8; }
 .btn:disabled { opacity:.4; cursor:not-allowed; }
+.btn.on:disabled { opacity:1; cursor:default; color:#fff; }   /* the current close state: solid, not greyed */
+.btn.win.on { background:#1c7a3f; }
+.btn.drop.on { background:#b42318; border-color:#b42318; }
 .actionbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 2px; padding-top:8px; border-top:1px dashed #eee; }
 .actionbar b { font-size:12px; color:#6b6b66; }
 .flagbox { background:#fff8e6; border:1px solid #ffe08a; border-radius:8px; padding:8px 10px; margin:6px 0; font-size:13px; }
@@ -464,10 +467,13 @@ function renderPerson() {
     + '<label>Website <input value="'+esc((l.handles||{}).website||"")+'" placeholder="https://…" onchange="saveHandle(\''+idJs+'\',\'website\',this.value)"></label>'
     + '</div>';
   // Close on win / drop
+  // Closed already: the current outcome shows solid and inert, the other reads as a switch.
+  const closed = curKind === "won" || curKind === "lost";
   h += '<div class="actionbar">'
-    + '<b>Close:</b>'
-    + '<button class="btn win" onclick="closeAs(\''+idJs+'\',\'won\')"'+(curKind==="won"?' disabled title="already won"':(wonState?'':' title="adds a Won state to this campaign"'))+'>✓ Won</button>'
-    + '<button class="btn drop" onclick="closeAs(\''+idJs+'\',\'lost\')"'+(curKind==="lost"?' disabled title="already dropped"':(lostState?'':' title="adds a Passed state to this campaign"'))+'>✕ Drop</button>'
+    + '<b>'+(closed ? "Closed:" : "Close:")+'</b>'
+    + '<button class="btn win'+(curKind==="won"?' on':'')+'" onclick="closeAs(\''+idJs+'\',\'won\')"'+(curKind==="won"?' disabled title="current outcome"':(wonState?'':' title="adds a Won state to this campaign"'))+'>✓ Won'+(curKind==="lost"?' instead':'')+'</button>'
+    + '<button class="btn drop'+(curKind==="lost"?' on':'')+'" onclick="closeAs(\''+idJs+'\',\'lost\')"'+(curKind==="lost"?' disabled title="current outcome"':(lostState?'':' title="adds a Passed state to this campaign"'))+'>✕ Drop'+(curKind==="won"?' instead':'')+'</button>'
+    + (closed ? ' <span class="muted">reopen: pick an active state above</span>' : '')
     + '</div>';
 
   // trail
