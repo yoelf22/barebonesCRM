@@ -259,8 +259,12 @@ function renderToday() {
   AppLogic.upcomingMeetings(RAW.meetings, now).forEach(m => {
     if (String(m.start).slice(0,10) === today && !meetToday[m.leadId]) meetToday[m.leadId] = m;
   });
+  // A calendar case hides here only if the Upcoming meetings frame actually shows it; a flag
+  // for an event with no meetings.json row (a task-like event, a lead with no call) stays here.
+  const inMeetings = new Set(AppLogic.upcomingMeetings(RAW.meetings, now).map(m => m.leadId));
+  const inFrame = l => cal(l) && inMeetings.has(l.id);
   const rows = RAW.leads.filter(l => {
-    if (cal(l)) return false;   // calendar cases live in the Upcoming meetings frame, not here
+    if (inFrame(l)) return false;
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
     return flagged(l) || meetToday[l.id] || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
@@ -269,7 +273,7 @@ function renderToday() {
   const current = rows.filter(l => meetToday[l.id] || !l.followUpDate || l.followUpDate === today);
   // every future-dated item worth seeing ahead of time — not only flagged ones (a scheduled
   // follow-up should show before its date). Calendar cases live in the meetings frame.
-  const upcoming = RAW.leads.filter(l => !cal(l) && l.followUpDate && l.followUpDate > today
+  const upcoming = RAW.leads.filter(l => !inFrame(l) && l.followUpDate && l.followUpDate > today
       && (AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active" || flagged(l) || l.waiting === "me"))
     .sort((a,b) => String(a.followUpDate).localeCompare(String(b.followUpDate)));
   const row = l => {
