@@ -242,7 +242,12 @@ function render() {
 // newer than the inbound that raised it). The Person view still shows the raw signal.
 function flagged(l) {
   const ob = (RAW.observations || {})[l.id];
-  return !!(ob && ob.needsAction && !AppLogic.actedSince(RAW.comments, l.id, ob.lastInbound || ob.ts));
+  if (!ob || !ob.needsAction) return false;
+  // A calendar mismatch on a dropped lead is noise (the bot re-raises it after every edit);
+  // a reply on a dropped lead still counts.
+  if (String(ob.reason || "").startsWith("calendar:")
+      && AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "lost") return false;
+  return !AppLogic.actedSince(RAW.comments, l.id, ob.lastInbound || ob.ts);
 }
 // For a live calendar flag, the bot's reason minus its prefix — "event is 6 May 09:00, CRM says 2027-05-05".
 function cal(l) {
