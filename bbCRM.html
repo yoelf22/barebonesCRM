@@ -71,7 +71,7 @@ a.link:hover { text-decoration:underline; }
 .flagbox { background:#fff8e6; border:1px solid #ffe08a; border-radius:8px; padding:8px 10px; margin:6px 0; font-size:13px; }
 .flagbox .frow { margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
 .flagbox input { font:inherit; font-size:12px; padding:3px 6px; border:1px solid #d8d8d2; border-radius:5px; }
-#search { width:100%; font:inherit; font-size:14px; padding:9px 12px; border:1px solid #d8d8d2; border-radius:8px; margin-bottom:12px; }
+#search, #asearch { width:100%; font:inherit; font-size:14px; padding:9px 12px; border:1px solid #d8d8d2; border-radius:8px; margin-bottom:12px; }
 .err { color:#b42318; font-size:12px; margin-left:8px; }
 .trail-row { display:flex; gap:8px; padding:4px 0; border-top:1px solid #f0f0ec; font-size:12px; }
 .trail-when { color:#9a9a92; white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -268,8 +268,11 @@ function renderToday() {
   // for an event with no meetings.json row (a task-like event, a lead with no call) stays here.
   const inMeetings = new Set(AppLogic.upcomingMeetings(RAW.meetings, now).map(m => m.leadId));
   const inFrame = l => cal(l) && inMeetings.has(l.id);
+  // Search box: narrows every agenda frame to leads whose name or org matches.
+  const q = (window.__asearch || "").trim().toLowerCase();
+  const hit = l => !q || ((l && l.name || "") + " " + ((MODEL.orgsById[l && l.orgId] || {}).name || "")).toLowerCase().includes(q);
   const rows = RAW.leads.filter(l => {
-    if (inFrame(l)) return false;
+    if (inFrame(l) || !hit(l)) return false;
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
     return flagged(l) || meetToday[l.id] || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
@@ -278,7 +281,7 @@ function renderToday() {
   const current = rows.filter(l => meetToday[l.id] || !l.followUpDate || l.followUpDate === today);
   // every future-dated item worth seeing ahead of time — not only flagged ones (a scheduled
   // follow-up should show before its date). Calendar cases live in the meetings frame.
-  const upcoming = RAW.leads.filter(l => !inFrame(l) && l.followUpDate && l.followUpDate > today
+  const upcoming = RAW.leads.filter(l => !inFrame(l) && hit(l) && l.followUpDate && l.followUpDate > today
       && (AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active" || flagged(l) || l.waiting === "me"))
     .sort((a,b) => String(a.followUpDate).localeCompare(String(b.followUpDate)));
   const row = l => {
@@ -291,10 +294,10 @@ function renderToday() {
           : cal(l) ? esc(cal(l)) : (l.followUpDate?((l.followUpDate < today ? "overdue since " : "due ")+ilTime(l.followUpDate)):""))+'</div></div>';
   };
   let h = '<div class="card"><h3>Today ('+current.length+')</h3>'
-    + (current.length ? current.map(row).join('') : '<p class="muted">Nothing due — inbox zero.</p>') + '</div>';
+    + (current.length ? current.map(row).join('') : '<p class="muted">'+(q ? 'No match on today\'s agenda.' : 'Nothing due — inbox zero.')+'</p>') + '</div>';
   if (overdue.length) h += '<div class="card"><h3>Overdue ('+overdue.length+')</h3>' + overdue.map(row).join('') + '</div>';
   // Meetings rank above async follow-ups (a mail blast waits; a live meeting does not).
-  const ms = AppLogic.upcomingMeetings(RAW.meetings, now);
+  const ms = AppLogic.upcomingMeetings(RAW.meetings, now).filter(m => hit(MODEL.leadsById[m.leadId]));
   if (ms.length) h += '<div class="card"><h3>Upcoming meetings ('+ms.length+')</h3>' + ms.map(meetingRow).join('') + '</div>';
   // Cap follow-ups to the next 7 days; note how many sit beyond it.
   const cutoff = new Date(now.getTime() + 7*864e5).toISOString().slice(0,10);
@@ -321,7 +324,15 @@ function renderToday() {
     h += '<div class="card"><h3>Upcoming follow-ups ('+soon.length+')</h3>' + body
       + (later ? '<div class="meta" style="padding-top:6px">+'+later+' more after '+ilTime(cutoff)+'</div>' : '') + '</div>';
   }
-  view.innerHTML = h;
+  if (q) h += '<a class="link" onclick="window.__personId=null;window.__psearch=window.__asearch;setTab(\'people\')">Search all people for "'+esc(q)+'" →</a>';
+  // The box lives outside #agenda so typing redraws the frames without losing focus.
+  let box = document.getElementById("asearch");
+  if (!box) {
+    view.innerHTML = '<input id="asearch" placeholder="Search the agenda by name or org…" autocomplete="off" value="'+esc(window.__asearch||"")+'"><div id="agenda"></div>';
+    box = document.getElementById("asearch");
+    box.oninput = () => { window.__asearch = box.value; renderToday(); };
+  }
+  document.getElementById("agenda").innerHTML = h;
 }
 
 // ---- Campaigns ----
