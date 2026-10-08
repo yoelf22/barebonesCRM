@@ -291,7 +291,9 @@ function renderToday() {
   const rows = RAW.leads.filter(l => {
     if (inFrame(l) || !hit(l)) return false;
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
-    return flagged(l) || meetToday[l.id] || (active && AppLogic.leadDue(l, now)) || l.waiting === "me";
+    // a lost lead stays off the agenda even if it was left "waiting on me"
+    const lost = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "lost";
+    return flagged(l) || meetToday[l.id] || (active && AppLogic.leadDue(l, now)) || (l.waiting === "me" && !lost);
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
   const overdue = rows.filter(l => !meetToday[l.id] && l.followUpDate && l.followUpDate < today);
@@ -299,7 +301,8 @@ function renderToday() {
   // every future-dated item worth seeing ahead of time — not only flagged ones (a scheduled
   // follow-up should show before its date). Calendar cases live in the meetings frame.
   const upcoming = RAW.leads.filter(l => !inFrame(l) && hit(l) && l.followUpDate && l.followUpDate > today
-      && (AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active" || flagged(l) || l.waiting === "me"))
+      && (AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active" || flagged(l)
+          || (l.waiting === "me" && AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) !== "lost")))
     .sort((a,b) => String(a.followUpDate).localeCompare(String(b.followUpDate)));
   const row = l => {
     const org = MODEL.orgsById[l.orgId];
@@ -364,7 +367,7 @@ function renderCampaigns() {
     const unit = c.targetType === "organization"
       ? new Set(leads.map(l => l.orgId)).size + " orgs"
       : leads.length + " people";
-    const needs = leads.filter(l => l.waiting === "me" ||
+    const needs = leads.filter(l => (l.waiting === "me" && AppLogic.stateKind(c, l.state) !== "lost") ||
       (AppLogic.stateKind(c, l.state)==="active" && AppLogic.leadDue(l, new Date()))).length;
     const top = f.reached[0] || 1;
     h += '<div class="card"><h3>'+esc(CAMPLABEL[c.id]||c.name)+'</h3>'
