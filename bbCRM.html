@@ -224,7 +224,24 @@ async function load() {
 }
 
 function setTab(t){ window.__tab = t; localStorage.setItem("_apptab", t); render(); }
-function openPerson(id){ window.__personId = id; setTab("people"); }
+// Remember where a lead card was opened from so its back link returns there. A card opened
+// from inside another card (Referred by) keeps the original origin.
+function openPerson(id, camp){
+  if (!(window.__tab === "people" && window.__personId))
+    window.__back = { tab: window.__tab, camp: camp || null, y: window.scrollY };
+  window.__personId = id; setTab("people"); window.scrollTo(0, 0);
+}
+function goBack(){
+  const b = window.__back || { tab: "people" };
+  window.__personId = null; window.__back = null;
+  window.__openCamp = b.camp; setTab(b.tab); window.scrollTo(0, b.y || 0);
+}
+function backLabel(){
+  const b = window.__back;
+  if (!b || b.tab === "people") return "all people";
+  if (b.camp) return campName(b.camp) + " leads";
+  return { today:"Today", campaigns:"Campaigns", unmatched:"Unmatched", ask:"Ask" }[b.tab] || b.tab;
+}
 
 function render() {
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.tab === window.__tab));
@@ -363,7 +380,7 @@ function renderCampaigns() {
         + '</div>'
         + '<span class="num"><b>'+n+'</b>'+(k ? ' · '+pct(n, f.reached[k-1]) : '')+(lost ? ' · '+lost+' dropped' : '')+'</span></div>';
     });
-    h += '<details><summary class="link" style="margin-top:6px">show '+leads.length+' leads</summary>';
+    h += '<details'+(window.__openCamp === c.id ? ' open' : '')+'><summary class="link" style="margin-top:6px">show '+leads.length+' leads</summary>';
     const now = new Date(), today = now.toISOString().slice(0,10);
     const urg = l => AppLogic.leadUrgency(l, AppLogic.stateKind(c, l.state), flagged(l), now);
     leads.slice().sort((a,b) => urg(a)-urg(b)
@@ -373,7 +390,7 @@ function renderCampaigns() {
       const cls = u <= 1 ? "b-me" : {active:"b-active",won:"b-won",lost:"b-lost"}[kind] || "b-lost";
       const when = u === 0 ? "reply — act" : u === 1 ? "you owe"
         : l.followUpDate && kind === "active" ? (l.followUpDate < today ? "overdue since " : "due ") + ilTime(l.followUpDate) : "";
-      h += '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\')">'+esc(l.name)+'</a>'
+      h += '<div class="row"><div><div class="main"><a class="link" onclick="openPerson(\''+esc(l.id)+'\',\''+esc(c.id)+'\')">'+esc(l.name)+'</a>'
         + '<span class="badge '+cls+'">'+esc(l.state)+'</span></div>'
         + '<div class="meta">'+esc(org?org.name:"")+'</div></div>'
         + '<div class="meta"'+(u === 2 ? ' style="color:#b42318"' : '')+'>'+esc(when)+'</div></div>';
@@ -449,7 +466,7 @@ function renderPerson() {
   if (fa.formatRequested && fa.formatSent && fa.formatRequested !== fa.formatSent)
     badges += '<span class="badge b-mismatch">format mismatch</span>';
 
-  let h = '<div style="margin-bottom:10px"><a class="link" onclick="window.__personId=null;render()">← all people</a></div>';
+  let h = '<div style="margin-bottom:10px"><a class="link" onclick="goBack()">← '+esc(backLabel())+'</a></div>';
   h += '<div class="card">';
   // header: name + badges; role and org underneath; Gmail on the right
   const orgLine = org ? '<b>'+esc(org.name)+'</b>'
