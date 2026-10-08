@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Block real CRM data from being committed to this PUBLIC template repo.
 
-barebonesCRM ships demo fixtures. The private forks (e.g. tangibles-outreach-crm)
+barebonesCRM ships demo fixtures. The private forks (e.g. Outreach-CRM, formerly tangibles-outreach-crm)
 hold live outreach data in the SAME filenames, so a stray commit here publishes
 contact lists. This hook refuses that.
 
