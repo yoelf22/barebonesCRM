@@ -120,3 +120,18 @@ console.log("ok");
   console.assert(A.lastAction([], {lastInbound:"2026-09-04T05:40:56Z"}).direction === "received", "lastInbound alone");
   console.assert(A.lastAction([], null) === null, "nothing known");
 }
+{ // commsTrail: bot email/LinkedIn comments become directed events next to the trail
+  const ev = L.commsTrail({ x: [{date:"2026-01-01", direction:"sent", summary:"t", gmailLink:"g"}] }, [
+    {key:"x", channel:"email", text:"Emailed them.", ts:"2026-01-02"},
+    {key:"x", channel:"email", text:"They replied — yes", ts:"2026-01-03"},
+    {key:"x", channel:"linkedin", text:"LinkedIn: X messaged you", ts:"2026-01-04"},
+    {key:"x", text:"LinkedIn DM sent 23 Aug — hi", ts:"2026-01-05"},
+    {key:"x", channel:"calendar", text:"Calendar: hold", ts:"2026-01-06"},
+    {key:"x", text:"state → won", ts:"2026-01-07"} ]).x;
+  assert.deepStrictEqual(ev.map(e => e.channel+":"+e.direction),
+    ["email:sent","email:sent","email:received","linkedin:received","linkedin:sent"]);
+  assert.strictEqual(ev[0].link, "g");
+  // a bot line repeating a trail message (same link + direction) is not counted twice
+  assert.strictEqual(L.commsTrail({ y: [{date:"d", direction:"sent", gmailLink:"g"}] },
+    [{key:"y", channel:"email", text:"Emailed them.", link:"g", ts:"t"}]).y.length, 1);
+}

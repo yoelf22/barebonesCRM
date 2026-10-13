@@ -142,7 +142,28 @@
     return best;
   }
 
-  const api = { buildModel, stateKind, orgRollup, leadDue, campaignFunnel, funnelStages, actedSince, closeState,
+  // Trail + the email/LinkedIn messages logged in comments.json, as one per-lead event list.
+  // A bot line duplicating a trail entry (same link + direction) is dropped.
+  // Bot entries carry `channel` but no `direction`; its phrasing gives it ("Emailed them…" = sent,
+  // "They replied…" = received). Older hand-logged "LinkedIn DM sent …" notes count too.
+  const SENT_RE = /^(emailed|sent|messaged|you (sent|emailed|messaged)|linkedin (dm|message) sent)\b/i;
+  function commsTrail(trail, comments) {
+    const out = {};
+    Object.keys(trail || {}).forEach(k => out[k] = trail[k].map(e =>
+      Object.assign({ channel: "email", link: e.gmailLink || null }, e)));
+    (comments || []).forEach(x => {
+      const text = String(x.text || "").trim();
+      const channel = x.channel || (/^linkedin (dm|message) sent\b/i.test(text) ? "linkedin" : null);
+      if (channel !== "email" && channel !== "linkedin") return;
+      const direction = x.direction || (SENT_RE.test(text) ? "sent" : "received");
+      // the same message already in trail.json (same link + direction) counts once
+      if ((trail && trail[x.key] || []).some(e => x.link && e.gmailLink === x.link && e.direction === direction)) return;
+      (out[x.key] = out[x.key] || []).push({ date: x.ts, direction, channel, summary: text, link: x.link || null });
+    });
+    return out;
+  }
+
+  const api = { buildModel, commsTrail, stateKind, orgRollup, leadDue, campaignFunnel, funnelStages, actedSince, closeState,
                 upcomingMeetings, nextMeeting, meetingMismatch, leadUrgency, lastAction };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AppLogic = api;

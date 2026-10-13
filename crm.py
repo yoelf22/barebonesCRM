@@ -639,6 +639,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             "text": str(c["text"]).strip()[:2000],
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
+        # a logged message (not a note): counts as an email/LinkedIn event in History
+        if c.get("channel") in ("email", "linkedin") and c.get("direction") in ("sent", "received"):
+            entry["channel"], entry["direction"] = c["channel"], c["direction"]
         try:
             return self._json(persist(entry))
         except Exception as e:

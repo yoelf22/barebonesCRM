@@ -104,6 +104,7 @@ a.link:hover { text-decoration:underline; }
 .links { margin-top:10px; padding-top:8px; border-top:1px solid #f0f0ec; font-size:13px; }
 .notes { font-size:13px; color:#4a4a46; }
 .hist .add { display:flex; gap:6px; margin:0 0 8px; padding-bottom:10px; border-bottom:1px solid #e7e7e2; }
+.hist .add select { font:inherit; font-size:12px; border:1px solid #d8d8d2; border-radius:6px; }
 .hist .add input { flex:1; font:inherit; font-size:13px; padding:6px 8px; border:1px solid #d8d8d2; border-radius:6px; }
 .h-row { display:grid; grid-template-columns:96px 22px minmax(0,1fr); gap:8px; padding:7px 0; border-top:1px solid #f0f0ec; font-size:12px; }
 .h-row:first-of-type { border-top:none; }
@@ -361,9 +362,10 @@ function renderCampaigns() {
   const pct = (a,b) => b ? Math.round(100*a/b)+"%" : "—";
   let h = '<div class="legend">' + S.map((s,k) => '<span><i class="fs'+k+'"></i>'+s+'</span>').join('')
     + '<span><i class="fsx"></i>dropped at that stage</span></div>';
+  const EV = AppLogic.commsTrail(RAW.trail, RAW.comments);
   RAW.campaigns.forEach(c => {
     const leads = MODEL.leadsByCampaign[c.id] || [];
-    const f = AppLogic.funnelStages(c, leads, RAW.trail, RAW.observations);
+    const f = AppLogic.funnelStages(c, leads, EV, RAW.observations);
     const unit = c.targetType === "organization"
       ? new Set(leads.map(l => l.orgId)).size + " orgs"
       : leads.length + " people";
@@ -471,17 +473,27 @@ function renderPerson() {
 
   let h = '<div style="margin-bottom:10px"><a class="link" onclick="goBack()">← '+esc(backLabel())+'</a></div>';
   h += '<div class="card">';
-  // header: name + badges; role and org underneath; Gmail on the right
+  // header: name + badges; role and org underneath; Gmail + LinkedIn on the right.
+  // Gmail: the lead's thread, else the newest email event's thread; "All emails" searches every address.
+  // LinkedIn: the newest messaging thread the bot saw, else the profile (its Message button opens the thread).
+  const evs = AppLogic.commsTrail(RAW.trail, RAW.comments)[l.id] || [];
+  const newest = ch => evs.filter(e => e.channel === ch && safeUrl(e.link)).sort((a,b) => String(b.date).localeCompare(String(a.date)))[0];
+  const gUrl = l.gmailThreadId ? "https://mail.google.com/mail/u/0/#all/"+encodeURIComponent(l.gmailThreadId) : (newest("email")||{}).link;
+  const liUrl = (newest("linkedin")||{}).link || safeUrl((l.handles||{}).linkedin);
+  const mails = (l.emails||[]).filter(Boolean);
+  const btns = (gUrl ? '<a class="btn" href="'+esc(gUrl)+'" target="_blank">Open Gmail thread ↗</a>' : '')
+    + (mails.length ? '<a class="btn" href="https://mail.google.com/mail/u/0/#search/'+encodeURIComponent(mails.map(m => "from:"+m+" OR to:"+m).join(" OR "))+'" target="_blank">All emails ↗</a>' : '')
+    + (liUrl ? '<a class="btn" href="'+esc(liUrl)+'" target="_blank" title="'+(newest("linkedin")?"LinkedIn message thread":"LinkedIn profile — no thread seen yet")+'">LinkedIn ↗</a>' : '');
   const orgLine = org ? '<b>'+esc(org.name)+'</b>'
     + (roll && roll.leadCount > 1 ? ' <span class="muted">· '+roll.leadCount+' leads: '+roll.counts.active+' active / '+roll.counts.won+' won / '+roll.counts.lost+' lost</span>' : '')
     : '<span class="muted">no org</span>';
   h += '<div class="hd"><div><h2>'+esc(l.name)+' '+badges+'</h2>'
     + '<div class="sub">'+(l.role ? esc(l.role)+' · ' : '')+orgLine+'</div></div>'
-    + (l.gmailThreadId ? '<a class="btn" href="https://mail.google.com/mail/u/0/#all/'+esc(l.gmailThreadId)+'" target="_blank">Open Gmail thread ↗</a>' : '')
+    + (btns ? '<div class="frow">'+btns+'</div>' : '')
     + '</div>';
   // status strip
   const curKind = AppLogic.stateKind(c, l.state);
-  const la = AppLogic.lastAction(MODEL.trailByLead[l.id], (RAW.observations || {})[l.id]);
+  const la = AppLogic.lastAction(evs, (RAW.observations || {})[l.id]);
   const todayIso = new Date().toISOString().slice(0,10);
   const due = !l.followUpDate ? '<span class="muted">none</span>'
     : l.followUpDate < todayIso ? '<b style="color:#b42318">overdue · '+esc(ilTime(l.followUpDate))+'</b>'
@@ -561,12 +573,14 @@ function renderPerson() {
 
   if (noteBase) h += '<div class="panel"><h4>Notes</h4><div class="body notes">'+esc(noteBase)+'</div></div>';
 
-  // History: bot Trail (sent/received) and your Log (notes) in one timeline, newest first
-  const hist = (MODEL.trailByLead[l.id] || []).map(e => ({ t:String(e.date||""), mark:e.direction==="sent"?"→":"←", cls:e.direction==="sent"?"out":"in", text:e.summary||"", link:e.gmailLink, who:"" }))
-    .concat((RAW.comments || []).filter(x => x.key === l.id).map(x => ({ t:String(x.ts||""), mark:"✎", cls:"", text:x.text, link:x.link, who:x.author||"" })))
+  // History: every email + LinkedIn message (in and out) as an event, plus your Log (notes), newest first
+  const isEvent = x => AppLogic.commsTrail({}, [x])[x.key];
+  const hist = evs.map(e => ({ t:String(e.date||""), mark:e.direction==="sent"?"→":"←", cls:e.direction==="sent"?"out":"in", text:(e.channel==="linkedin"?"in · ":"✉ · ")+(e.summary||""), link:safeUrl(e.link), who:"" }))
+    .concat((RAW.comments || []).filter(x => x.key === l.id && !isEvent(x)).map(x => ({ t:String(x.ts||""), mark:"✎", cls:"", text:x.text, link:safeUrl(x.link), who:x.author||"" })))
     .sort((a,b) => b.t.localeCompare(a.t));
-  h += '<div class="panel hist"><h4>History</h4><div class="body">'
-    + '<div class="add"><input id="noteinput" placeholder="Record a thought or decision…" onkeydown="if(event.key===\'Enter\')addNote(\''+idJs+'\')">'
+  const cnt = (ch, d) => evs.filter(e => e.channel === ch && e.direction === d).length;
+  h += '<div class="panel hist"><h4>History <span class="muted">· '+evs.length+' events — email '+cnt("email","sent")+' out / '+cnt("email","received")+' in · LinkedIn '+cnt("linkedin","sent")+' out / '+cnt("linkedin","received")+' in</span></h4><div class="body">'
+    + '<div class="add"><select id="notekind"><option value="">Note</option><option value="email|sent">Email sent</option><option value="email|received">Email received</option><option value="linkedin|sent">LinkedIn sent</option><option value="linkedin|received">LinkedIn received</option></select><input id="noteinput" placeholder="Record a thought or decision…" onkeydown="if(event.key===\'Enter\')addNote(\''+idJs+'\')">'
     + '<button class="btn" onclick="addNote(\''+idJs+'\')">Add</button></div>';
   if (!hist.length) h += '<span class="muted">Nothing yet — no emails matched and no notes.</span>';
   hist.forEach(x => h += '<div class="h-row"><span class="h-when">'+ilTime(x.t,true)+'</span><span class="h-mark '+x.cls+'">'+x.mark+'</span>'
@@ -618,11 +632,12 @@ async function addNote(id) {
   const inp = document.getElementById("noteinput");
   const text = (inp && inp.value || "").trim();
   if (!text) return;
+  const k = document.getElementById("notekind"), kind = k && k.value ? k.value.split("|") : null;
   busy();
   if (location.protocol === "file:") { alert("Read-only — open via http://localhost:8787/bbCRM.html to add notes."); return; }
   try {
     const r = await fetch("/comment", { method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({ key: id, text }) });
+      body: JSON.stringify(Object.assign({ key: id, text }, kind ? { channel: kind[0], direction: kind[1] } : {})) });
     if (!r.ok) return;
     RAW.comments = await r.json(); // POST /comment returns the full comments list
     render();

@@ -38,6 +38,7 @@ same list. A bot entry:
   "author": "CRM Bot",
   "via": "bot",
   "channel": "email",
+  "direction": "received",
   "text": "They replied. Asks for a review copy.",
   "link": "https://mail.google.com/mail/u/0/#all/18f3a2b1c4d5e6f7",
   "ts": "2026-09-04T05:40:56Z"
@@ -46,6 +47,10 @@ same list. A bot entry:
 
 - `key` is the lead id.
 - `text` is one factual line. What happened, not what to do about it.
+- `direction` is `sent` (you wrote it) or `received` (replies, bounces, out-of-office, every
+  LinkedIn message) on email and linkedin lines; omit it on calendar lines. The Person view's
+  History counts these lines as email/LinkedIn events by direction. A line repeating a
+  `trail.json` entry (same link and direction) is counted once.
 - `link` opens the actual message. The UI renders it as an arrow next to the line. Always set
   it. For channels that do not email you the message body, it is the only way to read it.
 - Dedup rule: skip if an entry with the same `key`, same `link` and same calendar date exists.
@@ -283,8 +288,9 @@ FEED C — CALENDAR (optional, if you can read the user's calendar):
 FOR EACH resolved event:
 1. APPEND to comments.json:
    {"key":"<lead.id>","author":"CRM Bot","via":"bot","channel":"<email|linkedin>",
-    "text":"<one factual line>","link":"<LINK>","ts":"<ISO 8601 Z>"}
-   Always include link. Email text is the observed fact only: "They replied. Asks for a
+    "direction":"<sent|received>","text":"<one factual line>","link":"<LINK>","ts":"<ISO 8601 Z>"}
+   Always include link. direction: "sent" when you wrote the message, "received" for replies,
+   bounces, out-of-office and every LinkedIn message. Email text is the observed fact only: "They replied. Asks for a
    review copy." / "Bounced: address not found." / "Out of office until 17 Aug." /
    "Emailed them." LinkedIn text: "LinkedIn: <Full Name> messaged you (open to read)."
    Dedup: skip if an entry with the same key, same link and same calendar date exists.
