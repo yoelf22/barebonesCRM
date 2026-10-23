@@ -65,5 +65,28 @@ def test_lead_save_logs_user_action():
     finally:
         crm.ROOT = root; shutil.rmtree(d)
 
+def test_lead_write_validated_and_told_feed():
+    # a bad value on /lead is refused up front (not left to break a later /import), and
+    # facts.told feeds the Ask context with who was told and which warm leads were not
+    import os, shutil, tempfile, subprocess
+    d = tempfile.mkdtemp(); root = crm.ROOT
+    for f in ("campaigns.json","organizations.json","leads.json","comments.json","observations.json"):
+        shutil.copy(os.path.join(root, f), d)
+    subprocess.run(["git","-C",d,"init","-q"]); crm.ROOT = d
+    try:
+        leads = json.load(open(os.path.join(d, "leads.json"))); lid = leads[0]["id"]
+        try:
+            crm.persist_entity("leads.json", {"id": lid, "state": "no-such-state"}, crm.ENTITY["/lead"][1], "t")
+            assert False, "bad state was saved"
+        except ValueError as e:
+            assert lid in str(e) and "no-such-state" in str(e)
+        assert json.load(open(os.path.join(d, "leads.json"))) == leads
+        crm.persist_entity("leads.json", {"id": lid, "facts": {"told": {"news": {"date": "2026-10-01", "kind": "email"}}}},
+                           crm.ENTITY["/lead"][1], "t")
+        ctx = crm.Handler._ask_context(None)
+        assert "Communication 'news' \u2014 told 1:" in ctx and leads[0]["name"] in ctx, ctx[-600:]
+    finally:
+        crm.ROOT = root; shutil.rmtree(d)
+
 if __name__ == "__main__":
-    test_get_leads_ok(); test_promote_and_dismiss(); test_lead_save_logs_user_action(); print("ok")
+    test_get_leads_ok(); test_promote_and_dismiss(); test_lead_save_logs_user_action(); test_lead_write_validated_and_told_feed(); print("ok")

@@ -180,6 +180,16 @@ def persist_entity(fname, delta, allowed, message, log=None):
         git("pull", "--no-edit", "--no-rebase", "-q")
         items = load_json_file(fname, [])
         model.apply_delta(items, delta, allowed)   # raises KeyError on unknown id
+        if fname == "leads.json":
+            # Same check /import runs on the whole model: a bad value written here would
+            # otherwise surface later as an /import failure naming this lead.
+            camps = load_json_file("campaigns.json", [])
+            orgs = {o["id"] for o in load_json_file("organizations.json", [])}
+            cst = {c["id"]: {st["key"] for st in c["states"]} for c in camps}
+            lead = next(l for l in items if l.get("id") == delta["id"])
+            errs = model.validate_lead(lead, orgs, cst)
+            if errs:
+                raise ValueError("%s: %s" % (delta["id"], "; ".join(errs)))
         model.save(os.path.join(ROOT, fname), items)
         git("add", fname)
         if log and fname == "leads.json":
@@ -351,7 +361,7 @@ def persist_import(campaign_id, campaign_name, rows, default_state, dismiss_link
         cst = {c["id"]: {s["key"] for s in c["states"]} for c in campaigns}
         errs = []
         for o in orgs: errs += model.validate_org(o, cids)
-        for l in leads: errs += model.validate_lead(l, oids, cst)
+        for l in leads: errs += ["%s: %s" % (l.get("id"), e) for e in model.validate_lead(l, oids, cst)]
         if errs:
             raise ValueError("validation failed: " + "; ".join(errs[:5]))
         files = ["organizations.json", "leads.json"]
@@ -509,6 +519,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if owed:    att += "\nWaiting on you (%d):\n" % len(owed) + "\n".join(line(l) for l in owed[:25])
         if flagged: att += "\nBot-flagged (%d):\n" % len(flagged) + "\n".join(flagged[:25])
         if att: ctx += "\n\nNeeds attention now:" + att
+
+        # Coverage of one-off communications (facts.told = {key: {date, kind, ref}}), so
+        # "who hasn't heard about X yet" is answerable. Warm = replied or past first contact,
+        # not lost; notes are included because holds live there.
+        told = {}
+        for l in leads:
+            for k, v in ((l.get("facts") or {}).get("told") or {}).items():
+                told.setdefault(k, []).append(l)
+        for k, got in sorted(told.items()):
+            got_ids = {l["id"] for l in got}
+            warm = [l for l in leads if l["id"] not in got_ids
+                    and kind.get((l.get("campaignId"), l.get("state"))) in ("active", "won")
+                    and (l.get("state") not in ("prospect", "contacted")
+                         or (obs.get(l["id"]) or {}).get("lastInbound"))]
+            ctx += "\n\nCommunication %r — told %d:\n" % (k, len(got)) + "\n".join(
+                "  - %s (%s, %s %s)" % (l["name"], l["campaignId"], l["facts"]["told"][k].get("date"),
+                                        l["facts"]["told"][k].get("kind", "")) for l in got[:60])
+            ctx += "\nWarm leads NOT told %r (%d; check notes for holds before suggesting):\n" % (k, len(warm)) + "\n".join(
+                line(l) + " notes: " + (l.get("notes") or "")[:120].replace("\n", " ") for l in warm[:100])
         if lead_id:
             l = next((x for x in leads if x.get("id") == lead_id), None)
             if l:
@@ -564,6 +593,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                                   log=("You" if via == "ui" else "Claude", via)))
             except KeyError:
                 return self._json({"error": "unknown id"}, 404)
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
         if p == "/import":

@@ -84,6 +84,9 @@ Know these before you adopt it.
 - **The schema is opinionated.** The `facts` block on a lead reflects the outreach it was
   extracted from (paid or free, format sent, physical copy offered). Edit `model.py` to make
   it yours rather than working around it.
+  One convention on top: `facts.told = {"<key>": {"date", "kind", "ref"}}` records that a lead
+  heard about a one-off communication (a report, a launch). The Ask tab then lists who was told
+  and which warm leads were not, so "who hasn't heard about X yet?" has an answer.
 - **The Ask tab needs an assistant.** It uses a locally installed Claude Code (`claude`) with
   no API key, or falls back to an `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` you set. With neither,
   it stays off. Either way it sends a compact summary of your data to the model.
