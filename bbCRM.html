@@ -294,6 +294,8 @@ function renderToday() {
     const active = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "active";
     // a lost lead stays off the agenda even if it was left "waiting on me"
     const lost = AppLogic.stateKind(MODEL.campaignsById[l.campaignId], l.state) === "lost";
+    // nurture = parked until there is news: off the agenda unless a new reply flags it
+    if (l.state === "nurture") return flagged(l);
     return flagged(l) || meetToday[l.id] || (active && AppLogic.leadDue(l, now)) || (l.waiting === "me" && !lost);
   }).sort((a,b) => (STRENGTH_RANK[a.strength]-STRENGTH_RANK[b.strength])
       || (String(a.followUpDate||"9999")).localeCompare(String(b.followUpDate||"9999")));
@@ -481,7 +483,8 @@ function renderPerson() {
   const gUrl = l.gmailThreadId ? "https://mail.google.com/mail/u/0/#all/"+encodeURIComponent(l.gmailThreadId) : (newest("email")||{}).link;
   const liUrl = (newest("linkedin")||{}).link || safeUrl((l.handles||{}).linkedin);
   const mails = (l.emails||[]).filter(Boolean);
-  const btns = (gUrl ? '<a class="btn" href="'+esc(gUrl)+'" target="_blank">Open Gmail thread ↗</a>' : '')
+  // All emails (from:/to: search across every thread) is the Gmail link; one thread only when there is no address
+  const btns = (gUrl && !mails.length ? '<a class="btn" href="'+esc(gUrl)+'" target="_blank">Open Gmail thread ↗</a>' : '')
     + (mails.length ? '<a class="btn" href="https://mail.google.com/mail/u/0/#search/'+encodeURIComponent(mails.map(m => "from:"+m+" OR to:"+m).join(" OR "))+'" target="_blank">All emails ↗</a>' : '')
     + (liUrl ? '<a class="btn" href="'+esc(liUrl)+'" target="_blank" title="'+(newest("linkedin")?"LinkedIn message thread":"LinkedIn profile — no thread seen yet")+'">LinkedIn ↗</a>' : '');
   const orgLine = org ? '<b>'+esc(org.name)+'</b>'
